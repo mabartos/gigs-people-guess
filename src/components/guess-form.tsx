@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Save } from "lucide-react";
+import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Camera, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Gig, Member } from "@/types";
+import { CREW_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   guitar: Guitar, mic: Mic, music: Music, drum: Drum,
-  piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package,
+  piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package, camera: Camera,
 };
 
 export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
@@ -65,7 +66,11 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
   }
 
   const band = members.filter((m) => m.type === "band");
-  const crew = members.filter((m) => m.type === "crew");
+  const crewGroups: { label: string; members: Member[] }[] = CREW_CATEGORIES
+    .map((cat) => ({ label: cat, members: members.filter((m) => m.type === "crew" && m.role === cat) }))
+    .filter((g) => g.members.length > 0);
+  const crewOther = members.filter((m) => m.type === "crew" && !CREW_CATEGORIES.includes(m.role as typeof CREW_CATEGORIES[number]));
+  if (crewOther.length > 0) crewGroups.push({ label: "Ostatní", members: crewOther });
 
   function renderInput(member: Member) {
     const Icon = iconMap[member.icon] || Music;
@@ -108,12 +113,12 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
             </div>
           )}
 
-          {crew.length > 0 && (
-            <div className="space-y-3">
-              <Badge variant="outline">Crew</Badge>
-              {crew.map(renderInput)}
+          {crewGroups.map((group) => (
+            <div key={group.label} className="space-y-3">
+              <Badge variant="outline">{group.label}</Badge>
+              {group.members.map(renderInput)}
             </div>
-          )}
+          ))}
 
           <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
             <Save className="h-5 w-5" />

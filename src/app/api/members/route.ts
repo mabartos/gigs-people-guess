@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, icon, type } = body;
+    const { name, icon, type, role } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Vyplň jméno" }, { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     await addMember({
       id,
       name: name.trim(),
-      role: "",
+      role: role || "",
       icon: icon || "music",
       type: (type as MemberType) || "crew",
     });

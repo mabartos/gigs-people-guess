@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, UserPlus, Trash2, Users } from "lucide-react";
+import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Camera, UserPlus, Trash2, Users } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { Member, MemberType } from "@/types";
+import type { Member } from "@/types";
+import { MEMBER_CATEGORIES, CREW_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   guitar: Guitar, mic: Mic, music: Music, drum: Drum,
-  piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package,
+  piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package, camera: Camera,
 };
 
 const iconOptions = [
@@ -35,6 +36,7 @@ const iconOptions = [
   { value: "headphones", label: "Zvuk" },
   { value: "lightbulb", label: "Světla" },
   { value: "package", label: "Bedňák" },
+  { value: "camera", label: "Foto" },
 ];
 
 export default function MembersPage() {
@@ -43,7 +45,7 @@ export default function MembersPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("music");
-  const [type, setType] = useState<MemberType>("crew");
+  const [category, setCategory] = useState("Zvuk");
   const [addLoading, setAddLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
@@ -67,7 +69,12 @@ export default function MembersPage() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, icon, type }),
+        body: JSON.stringify({
+          name,
+          icon,
+          type: category === "band" ? "band" : "crew",
+          role: category === "band" ? "" : category,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -76,7 +83,7 @@ export default function MembersPage() {
       }
       toast.success("Člen přidán!");
       setAddOpen(false);
-      setName(""); setIcon("music"); setType("crew");
+      setName(""); setIcon("music"); setCategory("Zvuk");
       fetchMembers();
     } catch {
       toast.error("Chyba připojení");
@@ -112,7 +119,11 @@ export default function MembersPage() {
   }
 
   const band = members.filter((m) => m.type === "band");
-  const crew = members.filter((m) => m.type === "crew");
+  const crewGroups: { label: string; members: Member[] }[] = CREW_CATEGORIES
+    .map((cat) => ({ label: cat, members: members.filter((m) => m.type === "crew" && m.role === cat) }))
+    .filter((g) => g.members.length > 0);
+  const crewOther = members.filter((m) => m.type === "crew" && !CREW_CATEGORIES.includes(m.role as typeof CREW_CATEGORIES[number]));
+  if (crewOther.length > 0) crewGroups.push({ label: "Ostatní", members: crewOther });
 
   function renderMember(m: Member) {
     const Icon = iconMap[m.icon] || Music;
@@ -175,15 +186,15 @@ export default function MembersPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-base">Typ</Label>
-                  <div className="flex gap-2">
-                    {(["band", "crew"] as const).map((t) => (
+                  <Label className="text-base">Kategorie</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {MEMBER_CATEGORIES.map((cat) => (
                       <button
-                        key={t} type="button"
-                        onClick={() => setType(t)}
-                        className={`rounded-lg border px-4 py-2 text-sm transition-colors ${type === t ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                        key={cat.value} type="button"
+                        onClick={() => setCategory(cat.value)}
+                        className={`rounded-lg border px-4 py-2 text-sm transition-colors ${category === cat.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
                       >
-                        {t === "band" ? "Kapela" : "Crew"}
+                        {cat.label}
                       </button>
                     ))}
                   </div>
@@ -214,16 +225,18 @@ export default function MembersPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Badge variant="outline">Crew</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {crew.length === 0 ? <p className="text-muted-foreground text-sm">Žádní členové crew</p> : crew.map(renderMember)}
-              </CardContent>
-            </Card>
+            {crewGroups.map((group) => (
+              <Card key={group.label}>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Badge variant="outline">{group.label}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {group.members.map(renderMember)}
+                </CardContent>
+              </Card>
+            ))}
           </>
         )}
 

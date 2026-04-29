@@ -10,9 +10,17 @@ export const DEFAULT_MEMBERS: Member[] = [
   { id: "doupi", name: "Doupi", role: "Světla", icon: "lightbulb", type: "crew" },
   { id: "filip", name: "Filip", role: "Světla", icon: "lightbulb", type: "crew" },
   { id: "houzvi", name: "Houžvi", role: "Zvuk", icon: "headphones", type: "crew" },
-  { id: "kickin", name: "KickIn", role: "Bedňák", icon: "package", type: "crew" },
+  { id: "kickin", name: "KickIn", role: "Ostatní", icon: "package", type: "crew" },
   { id: "mj", name: "MJ", role: "Zvuk", icon: "headphones", type: "crew" },
 ];
+
+export const CREW_CATEGORIES = ["Zvuk", "Světla"] as const;
+
+export const MEMBER_CATEGORIES = [
+  { value: "band", label: "Kapela" },
+  ...CREW_CATEGORIES.map((c) => ({ value: c, label: c })),
+  { value: "Ostatní", label: "Ostatní" },
+] as const;
 
 export const GIGS_SHEET = "Gigs";
 export const MEMBERS_SHEET = "Členové";
