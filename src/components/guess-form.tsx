@@ -1,0 +1,126 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Gig, Member } from "@/types";
+import { toast } from "sonner";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  guitar: Guitar, mic: Mic, music: Music, drum: Drum,
+  piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package,
+};
+
+export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [guesses, setGuesses] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/members")
+      .then((r) => r.json())
+      .then((data: Member[]) => {
+        setMembers(data);
+        const initial: Record<string, string> = {};
+        data.forEach((m) => {
+          initial[m.id] = gig.guesses[m.id] != null ? String(gig.guesses[m.id]) : "";
+        });
+        setGuesses(initial);
+      });
+  }, [gig]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    const parsed: Record<string, number> = {};
+    for (const [id, val] of Object.entries(guesses)) {
+      if (val && Number(val) > 0) parsed[id] = Number(val);
+    }
+
+    try {
+      const res = await fetch(`/api/gigs/${gig.id}/guesses`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guesses: parsed }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Nepodařilo se uložit tipy");
+        return;
+      }
+
+      toast.success("Tipy uloženy!");
+      onSaved();
+    } catch {
+      toast.error("Chyba připojení");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const band = members.filter((m) => m.type === "band");
+  const crew = members.filter((m) => m.type === "crew");
+
+  function renderInput(member: Member) {
+    const Icon = iconMap[member.icon] || Music;
+    return (
+      <div key={member.id} className="flex items-center gap-3">
+        <Label
+          htmlFor={`guess-${member.id}`}
+          className="flex w-32 shrink-0 items-center gap-2 text-base"
+        >
+          <Icon className="h-5 w-5 text-primary" />
+          {member.name}
+        </Label>
+        <Input
+          id={`guess-${member.id}`}
+          type="number"
+          inputMode="numeric"
+          min="0"
+          value={guesses[member.id] || ""}
+          onChange={(e) => setGuesses({ ...guesses, [member.id]: e.target.value })}
+          placeholder="?"
+          className="max-w-32 h-11 text-base"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          🎯 Tipy
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {band.length > 0 && (
+            <div className="space-y-3">
+              <Badge className="bg-primary/20 text-primary">Kapela</Badge>
+              {band.map(renderInput)}
+            </div>
+          )}
+
+          {crew.length > 0 && (
+            <div className="space-y-3">
+              <Badge variant="outline">Crew</Badge>
+              {crew.map(renderInput)}
+            </div>
+          )}
+
+          <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
+            <Save className="h-5 w-5" />
+            {loading ? "Ukládám..." : "Uložit tipy"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}

@@ -1,0 +1,47 @@
+import type { Member } from "@/types";
+
+export const DEFAULT_MEMBERS: Member[] = [
+  { id: "bender", name: "Bender", role: "Klávesy", icon: "piano", type: "band" },
+  { id: "borec", name: "Borec", role: "Saxofon", icon: "music", type: "band" },
+  { id: "davos", name: "Davos", role: "Bicí", icon: "drum", type: "band" },
+  { id: "martos", name: "Martoš", role: "Kytara", icon: "guitar", type: "band" },
+  { id: "michal", name: "Michal", role: "Zpěv", icon: "mic", type: "band" },
+  { id: "vlada", name: "Vláďa", role: "Basa", icon: "guitar", type: "band" },
+  { id: "doupi", name: "Doupi", role: "Světla", icon: "lightbulb", type: "crew" },
+  { id: "filip", name: "Filip", role: "Světla", icon: "lightbulb", type: "crew" },
+  { id: "houzvi", name: "Houžvi", role: "Zvuk", icon: "headphones", type: "crew" },
+  { id: "kickin", name: "KickIn", role: "Bedňák", icon: "package", type: "crew" },
+  { id: "mj", name: "MJ", role: "Zvuk", icon: "headphones", type: "crew" },
+];
+
+export const GIGS_SHEET = "Gigs";
+export const MEMBERS_SHEET = "Členové";
+
+export const COOKIE_NAME = "thefeet-session";
+export const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+
+export const POINTS_TABLE = [8, 6, 5, 4, 4, 3, 3, 2, 2, 1];
+
+export function getPositionPoints(position: number): number {
+  if (position <= POINTS_TABLE.length) return POINTS_TABLE[position - 1];
+  return 1;
+}
+
+export function getGigStatus(gig: { guesses: Record<string, number | null>; actualCount: number | null }): "new" | "guessed" | "completed" {
+  if (gig.actualCount != null) return "completed";
+  const hasAnyGuess = Object.values(gig.guesses).some((v) => v != null && v > 0);
+  if (hasAnyGuess) return "guessed";
+  return "new";
+}
+
+export function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+export function formatDateLong(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  const weekday = date.toLocaleDateString("cs-CZ", { weekday: "long" });
+  const [y, m, d] = dateStr.split("-");
+  return `${weekday} ${d}.${m}.${y}`;
+}
