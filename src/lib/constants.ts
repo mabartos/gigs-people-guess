@@ -39,6 +39,16 @@ export function formatDate(dateStr: string): string {
   return `${d}.${m}.${y}`;
 }
 
+export function parseCzechDate(input: string): string | null {
+  const match = input.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return null;
+  const [, d, m, y] = match;
+  const day = parseInt(d, 10);
+  const month = parseInt(m, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 export function formatDateLong(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   const weekday = date.toLocaleDateString("cs-CZ", { weekday: "long" });

@@ -9,17 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Header } from "@/components/header";
+import { parseCzechDate } from "@/lib/constants";
 import { toast } from "sonner";
-
-function parseCzechDate(input: string): string | null {
-  const match = input.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!match) return null;
-  const [, d, m, y] = match;
-  const day = parseInt(d, 10);
-  const month = parseInt(m, 10);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-}
 
 export default function NewGigPage() {
   const router = useRouter();

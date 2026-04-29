@@ -108,26 +108,32 @@ export default function StatsPage() {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{completedCount}</div>
-                  <div className="text-xs text-muted-foreground">koncertů</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{stats[0].name}</div>
-                  <div className="text-xs text-muted-foreground">nejlepší tipér</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-primary">{stats[0].totalPoints}b</div>
-                  <div className="text-xs text-muted-foreground">bodů</div>
-                </CardContent>
-              </Card>
-            </div>
+            {(() => {
+              const topPoints = stats[0].totalPoints;
+              const topNames = stats.filter((s) => s.totalPoints === topPoints).map((s) => s.name);
+              return (
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl font-bold text-primary">{completedCount}</div>
+                      <div className="text-xs text-muted-foreground">koncertů</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <div className={`font-bold text-primary ${topNames.length > 2 ? "text-base" : topNames.length > 1 ? "text-xl" : "text-2xl"}`}>{topNames.join(", ")}</div>
+                      <div className="text-xs text-muted-foreground">{topNames.length > 1 ? "nejlepší tipéři" : "nejlepší tipér"}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl font-bold text-primary">{topPoints}b</div>
+                      <div className="text-xs text-muted-foreground">bodů</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             <Card>
               <CardHeader>

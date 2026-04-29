@@ -388,6 +388,44 @@ export async function updateResult(gigId: string, actualCount: number): Promise<
   invalidateCache();
 }
 
+export async function updateGig(gigId: string, data: { name?: string; date?: string; location?: string }): Promise<void> {
+  const sheets = getSheetsClient();
+  const id = getSheetId();
+  const rowIdx = await findGigRowIndex(gigId);
+  if (!rowIdx) throw new Error("Gig not found");
+
+  const headers = await getGigsHeaders();
+  const fields: [string, string][] = [];
+  if (data.name) fields.push(["name", data.name]);
+  if (data.date) fields.push(["date", data.date]);
+  if (data.location) fields.push(["location", data.location]);
+
+  for (const [header, value] of fields) {
+    const colIdx = headers.indexOf(header);
+    if (colIdx === -1) continue;
+    const col = String.fromCharCode("A".charCodeAt(0) + colIdx);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${GIGS_SHEET}!${col}${rowIdx}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[value]] },
+    });
+  }
+
+  const updatedIdx = headers.indexOf("updated_at");
+  if (updatedIdx >= 0) {
+    const col = String.fromCharCode("A".charCodeAt(0) + updatedIdx);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${GIGS_SHEET}!${col}${rowIdx}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[new Date().toISOString()]] },
+    });
+  }
+
+  invalidateCache();
+}
+
 export async function deleteGig(gigId: string): Promise<void> {
   const sheets = getSheetsClient();
   const id = getSheetId();

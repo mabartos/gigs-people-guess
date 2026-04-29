@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGigById, deleteGig } from "@/lib/google-sheets";
+import { getGigById, updateGig, deleteGig } from "@/lib/google-sheets";
 import { checkPassword } from "@/lib/auth";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +15,24 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   } catch (error) {
     console.error("Failed to fetch gig:", error);
     return NextResponse.json({ error: "Nepodařilo se načíst koncert" }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { name, date, location } = body;
+
+    if (!name && !date && !location) {
+      return NextResponse.json({ error: "Vyplň alespoň jedno pole" }, { status: 400 });
+    }
+
+    await updateGig(id, { name, date, location });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update gig:", error);
+    return NextResponse.json({ error: "Nepodařilo se upravit koncert" }, { status: 500 });
   }
 }
 
