@@ -35,12 +35,16 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
       .map((m) => ({ id: m.id, delta: Math.abs(gig.guesses[m.id]! - gig.actualCount!) }))
       .sort((a, b) => a.delta - b.delta);
 
-    ranked.forEach((r, idx) => {
-      const pts = getPositionPoints(idx + 1);
-      data[r.id].totalPoints += pts;
-      data[r.id].gigs += 1;
-      if (idx === 0) data[r.id].wins += 1;
-    });
+    let rank = 1;
+    for (let i = 0; i < ranked.length; i++) {
+      if (i > 0 && ranked[i].delta > ranked[i - 1].delta) {
+        rank = i + 1;
+      }
+      const pts = getPositionPoints(rank);
+      data[ranked[i].id].totalPoints += pts;
+      data[ranked[i].id].gigs += 1;
+      if (rank === 1) data[ranked[i].id].wins += 1;
+    }
   }
 
   const stats = members

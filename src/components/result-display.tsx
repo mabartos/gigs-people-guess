@@ -36,11 +36,16 @@ export function ResultDisplay({ gig }: { gig: Gig }) {
     })
     .sort((a, b) => a.absDelta - b.absDelta);
 
-  results.forEach((r, idx) => {
-    r.points = getPositionPoints(idx + 1);
-  });
+  let rank = 1;
+  for (let i = 0; i < results.length; i++) {
+    if (i > 0 && results[i].absDelta > results[i - 1].absDelta) {
+      rank = i + 1;
+    }
+    results[i].points = getPositionPoints(rank);
+  }
 
-  const winnerId = results.length > 0 ? results[0].id : null;
+  const winnerDelta = results.length > 0 ? results[0].absDelta : null;
+  const winnerIds = new Set(results.filter((r) => r.absDelta === winnerDelta).map((r) => r.id));
 
   return (
     <Card>
@@ -62,7 +67,7 @@ export function ResultDisplay({ gig }: { gig: Gig }) {
 
         <div className="space-y-2">
           {results.map((r, idx) => {
-            const isWinner = r.id === winnerId;
+            const isWinner = winnerIds.has(r.id);
             const isOver = r.delta > 0;
             const isUnder = r.delta < 0;
 

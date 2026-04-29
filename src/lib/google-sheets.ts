@@ -179,8 +179,8 @@ async function ensureGigsSheet(members: Member[]): Promise<void> {
   if (headers.length === 0) {
     const fullHeaders = [
       "id", "name", "date", "location",
-      ...members.map((m) => `guess_${m.id}`),
       "actual_count", "created_at", "updated_at",
+      ...members.map((m) => `guess_${m.id}`),
     ];
     await sheets.spreadsheets.values.update({
       spreadsheetId: id,
@@ -206,12 +206,7 @@ async function ensureGigGuessColumn(memberId: string): Promise<void> {
   const col = `guess_${memberId}`;
   if (headers.includes(col)) return;
 
-  const actualIdx = headers.indexOf("actual_count");
-  if (actualIdx === -1) {
-    headers.push(col);
-  } else {
-    headers.splice(actualIdx, 0, col);
-  }
+  headers.push(col);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: id,

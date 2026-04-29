@@ -7,17 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import type { Gig, Member } from "@/types";
 import { getGigStatus, formatDate } from "@/lib/constants";
 
-function getWinner(gig: Gig, members: Member[]): string | null {
+function getWinners(gig: Gig, members: Member[]): string | null {
   if (gig.actualCount == null) return null;
-  let closest: string | null = null;
   let minDelta = Infinity;
+  const names: string[] = [];
   for (const member of members) {
     const guess = gig.guesses[member.id];
     if (guess == null || guess === 0) continue;
     const delta = Math.abs(guess - gig.actualCount);
-    if (delta < minDelta) { minDelta = delta; closest = member.name; }
+    if (delta < minDelta) { minDelta = delta; names.length = 0; names.push(member.name); }
+    else if (delta === minDelta) { names.push(member.name); }
   }
-  return closest;
+  return names.length > 0 ? names.join(", ") : null;
 }
 
 const statusConfig = {
@@ -29,7 +30,7 @@ const statusConfig = {
 export function GigCard({ gig, members }: { gig: Gig; members: Member[] }) {
   const status = getGigStatus(gig);
   const config = statusConfig[status];
-  const winner = getWinner(gig, members);
+  const winner = getWinners(gig, members);
 
   return (
     <Link href={`/gig/${gig.id}`}>
