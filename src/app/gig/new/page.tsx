@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Header } from "@/components/header";
-import { parseCzechDate } from "@/lib/constants";
 import { toast } from "sonner";
 
 export default function NewGigPage() {
@@ -22,11 +21,11 @@ export default function NewGigPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const date = parseCzechDate(dateInput);
-    if (!date) {
-      setDateError("Zadej datum ve formátu dd.mm.yyyy");
+    if (!dateInput) {
+      setDateError("Zadej datum");
       return;
     }
+    const date = dateInput;
     setDateError("");
     setLoading(true);
 
@@ -92,14 +91,13 @@ export default function NewGigPage() {
                   <Calendar className="h-4 w-4" />
                   Datum
                 </Label>
-                <Input
+                <input
                   id="date"
+                  type="date"
                   value={dateInput}
                   onChange={(e) => { setDateInput(e.target.value); setDateError(""); }}
-                  placeholder="dd.mm.yyyy"
                   required
-                  inputMode="numeric"
-                  className="h-11 text-base"
+                  className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
                 {dateError && (
                   <p className="text-sm text-destructive font-medium">{dateError}</p>

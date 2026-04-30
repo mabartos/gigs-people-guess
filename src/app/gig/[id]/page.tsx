@@ -24,7 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Gig } from "@/types";
-import { getGigStatus, formatDateLong, formatDate, parseCzechDate } from "@/lib/constants";
+import { getGigStatus, formatDateLong } from "@/lib/constants";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -95,7 +95,7 @@ export default function GigDetailPage() {
   function startEditing() {
     if (!gig) return;
     setEditName(gig.name);
-    setEditDate(formatDate(gig.date));
+    setEditDate(gig.date);
     setEditLocation(gig.location);
     setEditDateError("");
     setEditing(true);
@@ -103,11 +103,11 @@ export default function GigDetailPage() {
 
   async function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault();
-    const date = parseCzechDate(editDate);
-    if (!date) {
-      setEditDateError("Zadej datum ve formátu dd.mm.yyyy");
+    if (!editDate) {
+      setEditDateError("Zadej datum");
       return;
     }
+    const date = editDate;
     setEditDateError("");
     setEditLoading(true);
 
@@ -179,7 +179,7 @@ export default function GigDetailPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Datum</Label>
-                  <Input value={editDate} onChange={(e) => { setEditDate(e.target.value); setEditDateError(""); }} required inputMode="numeric" placeholder="dd.mm.yyyy" className="h-11 text-base" />
+                  <input type="date" value={editDate} onChange={(e) => { setEditDate(e.target.value); setEditDateError(""); }} required className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
                   {editDateError && <p className="text-sm text-destructive font-medium">{editDateError}</p>}
                 </div>
                 <div className="space-y-1.5">

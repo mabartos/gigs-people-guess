@@ -12,6 +12,20 @@ import { POINTS_TABLE, getPositionPoints } from "@/lib/constants";
 import type { Gig, Member } from "@/types";
 import { cn } from "@/lib/utils";
 
+function avgPointsToPosition(avgPoints: number): string {
+  let bestPos = POINTS_TABLE.length + 1;
+  for (let i = 0; i < POINTS_TABLE.length; i++) {
+    if (POINTS_TABLE[i] >= avgPoints) bestPos = i + 1;
+  }
+  let worstPos = POINTS_TABLE.length + 1;
+  for (let i = 0; i < POINTS_TABLE.length; i++) {
+    if (POINTS_TABLE[i] <= avgPoints) { worstPos = i + 1; break; }
+  }
+  if (bestPos === worstPos) return `${bestPos}.`;
+  if (worstPos > POINTS_TABLE.length) return `${bestPos}.+`;
+  return `${bestPos}.-${worstPos}.`;
+}
+
 interface MemberStats {
   id: string;
   name: string;
@@ -83,7 +97,7 @@ const rankIcons = [
   <Medal key="3" className="h-4 w-4 text-muted-foreground/60" />,
 ];
 
-function StatsTable({ title, subtitle, stats, hideGigs }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean }) {
+function StatsTable({ title, subtitle, stats, hideGigs, minimal }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; minimal?: boolean }) {
   if (stats.length === 0) return null;
   return (
     <Card>
@@ -105,8 +119,8 @@ function StatsTable({ title, subtitle, stats, hideGigs }: { title: string; subti
                 <span className="hidden sm:inline">Výhry</span>
                 <Trophy className="h-3.5 w-3.5 sm:hidden mx-auto" />
               </TableHead>
-              <TableHead className="text-center hidden sm:table-cell">Prům.</TableHead>
-              {!hideGigs && <TableHead className="text-center pr-4">Tipů</TableHead>}
+              <TableHead className="text-center hidden sm:table-cell">{minimal ? "Prům. body" : "Prům. místo"}</TableHead>
+              {!hideGigs && !minimal && <TableHead className="text-center pr-4">Tipů</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,8 +132,8 @@ function StatsTable({ title, subtitle, stats, hideGigs }: { title: string; subti
                 <TableCell className={cn("font-medium", idx === 0 && "text-primary")}>{s.name}</TableCell>
                 <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
-                <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{s.avgPoints}</TableCell>
-                {!hideGigs && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
+                <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>
+                {!hideGigs && !minimal && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -209,7 +223,7 @@ export default function StatsPage() {
             })()}
 
             <StatsTable title="🏆 Celkový žebříček" stats={stats} />
-            {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs />}
+            {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
             <StatsTable title="🎧 Crew" stats={crewStats} />
             <StatsTable title="🎸 Kapela" stats={bandStats} />
 
