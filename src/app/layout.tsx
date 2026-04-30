@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TheFeet — Tipovačka",
+  title: "TheFeet — The Teepovačka",
   description: "Kolik přijde lidí na koncert? Tipni si!",
   appleWebApp: {
     capable: true,

@@ -23,12 +23,13 @@ export const MEMBER_CATEGORIES = [
 ] as const;
 
 export const GIGS_SHEET = "Gigs";
+export const POINTS_SHEET = "Body";
 export const MEMBERS_SHEET = "Členové";
 
 export const COOKIE_NAME = "thefeet-session";
 export const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
-export const POINTS_TABLE = [8, 6, 5, 4, 4, 3, 3, 2, 2, 1];
+export const POINTS_TABLE = [12, 10, 8, 7, 6, 5, 4, 3, 2, 1];
 
 export function getPositionPoints(position: number): number {
   if (position <= POINTS_TABLE.length) return POINTS_TABLE[position - 1];

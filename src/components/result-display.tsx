@@ -27,21 +27,23 @@ export function ResultDisplay({ gig }: { gig: Gig }) {
 
   if (gig.actualCount == null || members.length === 0) return null;
 
+  const hasStoredPoints = Object.keys(gig.points).length > 0;
+
   const results: MemberResult[] = members
-    .filter((m) => gig.guesses[m.id] != null && gig.guesses[m.id]! > 0)
+    .filter((m) => gig.guesses[m.id] != null)
     .map((m) => {
       const guess = gig.guesses[m.id]!;
       const delta = guess - gig.actualCount!;
-      return { id: m.id, name: m.name, guess, delta, absDelta: Math.abs(delta), points: 0 };
+      return { id: m.id, name: m.name, guess, delta, absDelta: Math.abs(delta), points: hasStoredPoints ? (gig.points[m.id] ?? 0) : 0 };
     })
     .sort((a, b) => a.absDelta - b.absDelta);
 
-  let rank = 1;
-  for (let i = 0; i < results.length; i++) {
-    if (i > 0 && results[i].absDelta > results[i - 1].absDelta) {
-      rank = i + 1;
+  if (!hasStoredPoints) {
+    let rank = 1;
+    for (let i = 0; i < results.length; i++) {
+      if (i > 0 && results[i].absDelta > results[i - 1].absDelta) rank = i + 1;
+      results[i].points = getPositionPoints(rank);
     }
-    results[i].points = getPositionPoints(rank);
   }
 
   const winnerDelta = results.length > 0 ? results[0].absDelta : null;

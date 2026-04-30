@@ -4,6 +4,7 @@ export interface Gig {
   date: string;
   location: string;
   guesses: Record<string, number | null>;
+  points: Record<string, number>;
   actualCount: number | null;
   createdAt: string;
   updatedAt: string;

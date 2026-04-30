@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
@@ -50,7 +49,7 @@ export default function LoginPage() {
             <Image src="/logo.png" alt="TheFeet" width={96} height={96} className="rounded-xl" priority />
           </div>
           <CardTitle className="text-xl font-bold text-primary">
-            Tipovačka
+            The Teepovačka
           </CardTitle>
           <CardDescription>
             Kolik přijde lidí na koncert?
@@ -63,14 +62,14 @@ export default function LoginPage() {
                 <LockKeyhole className="h-4 w-4" />
                 Heslo
               </Label>
-              <Input
+              <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Zadej heslo kapely..."
-                className="h-12 text-base"
                 autoFocus
+                className="h-12 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 

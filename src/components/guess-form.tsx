@@ -38,9 +38,9 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
     e.preventDefault();
     setLoading(true);
 
-    const parsed: Record<string, number> = {};
+    const parsed: Record<string, number | null> = {};
     for (const [id, val] of Object.entries(guesses)) {
-      if (val && Number(val) > 0) parsed[id] = Number(val);
+      parsed[id] = val !== "" ? Number(val) : null;
     }
 
     try {
