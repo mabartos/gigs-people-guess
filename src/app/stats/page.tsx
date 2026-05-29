@@ -97,7 +97,7 @@ const rankIcons = [
   <Medal key="3" className="h-4 w-4 text-muted-foreground/60" />,
 ];
 
-function StatsTable({ title, subtitle, stats, hideGigs, minimal }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; minimal?: boolean }) {
+function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; minimal?: boolean }) {
   if (stats.length === 0) return null;
   return (
     <Card>
@@ -111,10 +111,10 @@ function StatsTable({ title, subtitle, stats, hideGigs, minimal }: { title: stri
             <TableRow>
               <TableHead className="w-10 pl-4">#</TableHead>
               <TableHead>Jméno</TableHead>
-              <TableHead className="text-center">
+              {!hidePoints && <TableHead className="text-center">
                 <span className="hidden sm:inline">Body</span>
                 <Star className="h-3.5 w-3.5 sm:hidden mx-auto" />
-              </TableHead>
+              </TableHead>}
               <TableHead className="text-center">
                 <span className="hidden sm:inline">Výhry</span>
                 <Trophy className="h-3.5 w-3.5 sm:hidden mx-auto" />
@@ -130,7 +130,7 @@ function StatsTable({ title, subtitle, stats, hideGigs, minimal }: { title: stri
                   {rankIcons[idx] || <span className="text-muted-foreground">{idx + 1}</span>}
                 </TableCell>
                 <TableCell className={cn("font-medium", idx === 0 && "text-primary")}>{s.name}</TableCell>
-                <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>
+                {!hidePoints && <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>}
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
                 <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>
                 {!hideGigs && !minimal && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
@@ -172,6 +172,11 @@ export default function StatsPage() {
       return { ...s, totalPoints, avgPoints: best.length ? Math.round(totalPoints / best.length * 10) / 10 : 0 };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints || b.avgPoints - a.avgPoints);
+
+  const minParticipation = Math.ceil(completedCount * 0.3);
+  const efficient = stats
+    .filter((s) => s.totalGigs >= minParticipation)
+    .sort((a, b) => b.avgPoints - a.avgPoints || b.wins - a.wins);
 
   return (
     <>
@@ -223,6 +228,7 @@ export default function StatsPage() {
             })()}
 
             <StatsTable title="🏆 Celkový žebříček" stats={stats} />
+            {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints />}
             {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
             <StatsTable title="🎧 Crew" stats={crewStats} />
             <StatsTable title="🎸 Kapela" stats={bandStats} />
