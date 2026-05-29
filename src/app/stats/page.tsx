@@ -9,6 +9,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { POINTS_TABLE, getPositionPoints } from "@/lib/constants";
+import { PodiumChart } from "@/components/podium-chart";
+import type { PodiumEntry } from "@/components/podium-chart";
 import type { Gig, Member } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -36,26 +38,34 @@ interface MemberStats {
   avgPoints: number;
 }
 
-function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; completedCount: number; perGigPoints: Record<string, number[]> } {
+function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; completedCount: number; perGigPoints: Record<string, number[]>; podiums: PodiumEntry[] } {
   const completed = gigs.filter((g) => g.actualCount != null);
-  if (completed.length === 0) return { stats: [], completedCount: 0, perGigPoints: {} };
+  if (completed.length === 0) return { stats: [], completedCount: 0, perGigPoints: {}, podiums: [] };
 
   const data: Record<string, { wins: number; totalPoints: number; gigs: number }> = {};
   const perGigPoints: Record<string, number[]> = {};
-  members.forEach((m) => { data[m.id] = { wins: 0, totalPoints: 0, gigs: 0 }; perGigPoints[m.id] = []; });
+  const podiumData: Record<string, { gold: number; silver: number; bronze: number }> = {};
+  members.forEach((m) => {
+    data[m.id] = { wins: 0, totalPoints: 0, gigs: 0 };
+    perGigPoints[m.id] = [];
+    podiumData[m.id] = { gold: 0, silver: 0, bronze: 0 };
+  });
 
   for (const gig of completed) {
     const hasStoredPoints = Object.keys(gig.points).length > 0;
 
     if (hasStoredPoints) {
-      const maxPts = Math.max(...Object.values(gig.points));
+      const sortedPts = [...new Set(Object.values(gig.points))].sort((a, b) => b - a);
       for (const m of members) {
         const pts = gig.points[m.id];
         if (pts == null) continue;
         data[m.id].totalPoints += pts;
         data[m.id].gigs += 1;
         perGigPoints[m.id].push(pts);
-        if (pts === maxPts && pts === POINTS_TABLE[0]) data[m.id].wins += 1;
+        const rank = sortedPts.indexOf(pts) + 1;
+        if (rank === 1) { data[m.id].wins += 1; podiumData[m.id].gold += 1; }
+        else if (rank === 2) podiumData[m.id].silver += 1;
+        else if (rank === 3) podiumData[m.id].bronze += 1;
       }
     } else {
       const ranked = members
@@ -70,7 +80,9 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
         data[ranked[i].id].totalPoints += pts;
         data[ranked[i].id].gigs += 1;
         perGigPoints[ranked[i].id].push(pts);
-        if (rank === 1) data[ranked[i].id].wins += 1;
+        if (rank === 1) { data[ranked[i].id].wins += 1; podiumData[ranked[i].id].gold += 1; }
+        else if (rank === 2) podiumData[ranked[i].id].silver += 1;
+        else if (rank === 3) podiumData[ranked[i].id].bronze += 1;
       }
     }
   }
@@ -88,7 +100,15 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
     .filter((s) => s.totalGigs > 0)
     .sort((a, b) => b.totalPoints - a.totalPoints || b.wins - a.wins);
 
-  return { stats, completedCount: completed.length, perGigPoints };
+  const podiums = members
+    .map((m) => {
+      const p = podiumData[m.id];
+      return { id: m.id, name: m.name, gold: p.gold, silver: p.silver, bronze: p.bronze, total: p.gold + p.silver + p.bronze };
+    })
+    .filter((p) => p.total > 0)
+    .sort((a, b) => b.total - a.total || b.gold - a.gold || b.silver - a.silver);
+
+  return { stats, completedCount: completed.length, perGigPoints, podiums };
 }
 
 const rankIcons = [
@@ -158,7 +178,7 @@ export default function StatsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const { stats, completedCount, perGigPoints } = computeStats(gigs, members);
+  const { stats, completedCount, perGigPoints, podiums } = computeStats(gigs, members);
   const bandIds = new Set(members.filter((m) => m.type === "band").map((m) => m.id));
   const crewIds = new Set(members.filter((m) => m.type === "crew").map((m) => m.id));
   const bandStats = stats.filter((s) => bandIds.has(s.id));
@@ -230,8 +250,9 @@ export default function StatsPage() {
             <StatsTable title="🏆 Celkový žebříček" stats={stats} />
             {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints />}
             {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
-            <StatsTable title="🎧 Crew" stats={crewStats} />
+            <PodiumChart podiums={podiums} />
             <StatsTable title="🎸 Kapela" stats={bandStats} />
+            <StatsTable title="🎧 Crew" stats={crewStats} />
 
             <Card>
               <CardHeader>
