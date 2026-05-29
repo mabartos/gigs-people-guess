@@ -142,11 +142,11 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal, sho
           </TableHeader>
           <TableBody>
             {stats.map((s, idx) => (
-              <TableRow key={s.id}>
+              <TableRow key={s.id} className={cn(idx === 0 && "bg-primary/5")}>
                 <TableCell className="font-medium pl-4">
                   {rankMedals[idx] ?? <span className="text-muted-foreground">{idx + 1}</span>}
                 </TableCell>
-                <TableCell className={cn("font-medium", idx < 3 && "font-bold")}>{s.name}</TableCell>
+                <TableCell className={cn("font-medium", idx < 3 && "font-bold", idx === 0 && "text-primary")}>{s.name}</TableCell>
                 {!hidePoints && <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>}
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
                 <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>
