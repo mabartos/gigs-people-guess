@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Camera, Save } from "lucide-react";
+import { Guitar, Mic, Music, Drum, Piano, Headphones, Lightbulb, Package, Camera, Save, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Gig, Member } from "@/types";
 import { CREW_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
@@ -17,10 +25,17 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
+  const isCompleted = gig.actualCount != null;
   const [members, setMembers] = useState<Member[]>([]);
   const [guesses, setGuesses] = useState<Record<string, string>>({});
   const [initialGuesses, setInitialGuesses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [showGuesses, setShowGuesses] = useState(isCompleted);
+  const [confirmShowOpen, setConfirmShowOpen] = useState(false);
+
+  useEffect(() => {
+    if (isCompleted) setShowGuesses(true);
+  }, [isCompleted]);
 
   useEffect(() => {
     fetch("/api/members")
@@ -84,6 +99,11 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
 
   function renderInput(member: Member) {
     const Icon = iconMap[member.icon] || Music;
+    const edited = guesses[member.id] !== initialGuesses[member.id];
+    const displayValue = showGuesses || edited ? (guesses[member.id] || "") : "";
+    const hasServerValue = initialGuesses[member.id] !== "" && initialGuesses[member.id] != null;
+    const placeholder = !showGuesses && hasServerValue && !edited ? "XXX" : "?";
+
     return (
       <div key={member.id} className="flex items-center gap-3">
         <Label
@@ -98,9 +118,9 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
           type="number"
           inputMode="numeric"
           min="0"
-          value={guesses[member.id] || ""}
+          value={displayValue}
           onChange={(e) => setGuesses({ ...guesses, [member.id]: e.target.value })}
-          placeholder="?"
+          placeholder={placeholder}
           className="max-w-32 h-11 text-base"
         />
       </div>
@@ -108,34 +128,72 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          🎯 Tipy
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {band.length > 0 && (
-            <div className="space-y-3">
-              <Badge className="bg-primary/20 text-primary">Kapela</Badge>
-              {band.map(renderInput)}
-            </div>
-          )}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-lg">
+            <span className="flex items-center gap-2">🎯 Tipy</span>
+            {!isCompleted && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => {
+                  if (showGuesses) {
+                    setShowGuesses(false);
+                  } else {
+                    setConfirmShowOpen(true);
+                  }
+                }}
+              >
+                {showGuesses ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showGuesses ? "Skrýt" : "Zobrazit"}
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {band.length > 0 && (
+              <div className="space-y-3">
+                <Badge className="bg-primary/20 text-primary">Kapela</Badge>
+                {band.map(renderInput)}
+              </div>
+            )}
 
-          {crewGroups.map((group) => (
-            <div key={group.label} className="space-y-3">
-              <Badge variant="outline">{group.label}</Badge>
-              {group.members.map(renderInput)}
-            </div>
-          ))}
+            {crewGroups.map((group) => (
+              <div key={group.label} className="space-y-3">
+                <Badge variant="outline">{group.label}</Badge>
+                {group.members.map(renderInput)}
+              </div>
+            ))}
 
-          <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
-            <Save className="h-5 w-5" />
-            {loading ? "Ukládám..." : "Uložit tipy"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+            <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
+              <Save className="h-5 w-5" />
+              {loading ? "Ukládám..." : "Uložit tipy"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Dialog open={confirmShowOpen} onOpenChange={setConfirmShowOpen}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Zobrazit tipy</DialogTitle>
+            <DialogDescription>
+              Opravdu chceš vidět tipy ostatních a být jimi ovlivněn?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmShowOpen(false)}>
+              Ne
+            </Button>
+            <Button onClick={() => { setShowGuesses(true); setConfirmShowOpen(false); }}>
+              Ano
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
