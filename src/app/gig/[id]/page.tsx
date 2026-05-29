@@ -44,6 +44,7 @@ export default function GigDetailPage() {
   const [editLocation, setEditLocation] = useState("");
   const [editDateError, setEditDateError] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [editingResult, setEditingResult] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -267,10 +268,10 @@ export default function GigDetailPage() {
 
         <GuessForm gig={gig} onSaved={fetchGig} />
 
-        {status === "completed" ? (
-          <ResultDisplay gig={gig} />
+        {status === "completed" && !editingResult ? (
+          <ResultDisplay gig={gig} onEdit={() => setEditingResult(true)} />
         ) : (
-          <ResultForm gig={gig} onSaved={fetchGig} />
+          <ResultForm gig={gig} onSaved={() => { setEditingResult(false); fetchGig(); }} onCancel={status === "completed" ? () => setEditingResult(false) : undefined} />
         )}
       </main>
     </>

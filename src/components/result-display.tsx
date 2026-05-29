@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, TrendingUp, TrendingDown, Target, Minus, Star } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Target, Minus, Star, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getPositionPoints } from "@/lib/constants";
 import type { Gig, Member } from "@/types";
@@ -18,7 +19,7 @@ interface MemberResult {
   points: number;
 }
 
-export function ResultDisplay({ gig }: { gig: Gig }) {
+export function ResultDisplay({ gig, onEdit }: { gig: Gig; onEdit?: () => void }) {
   const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
@@ -52,8 +53,13 @@ export function ResultDisplay({ gig }: { gig: Gig }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          🏆 Výsledky
+        <CardTitle className="flex items-center justify-between text-lg">
+          <span className="flex items-center gap-2">🏆 Výsledky</span>
+          {onEdit && (
+            <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-primary" onClick={onEdit}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -19,6 +19,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [guesses, setGuesses] = useState<Record<string, string>>({});
+  const [initialGuesses, setInitialGuesses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -31,23 +32,32 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
           initial[m.id] = gig.guesses[m.id] != null ? String(gig.guesses[m.id]) : "";
         });
         setGuesses(initial);
+        setInitialGuesses(initial);
       });
   }, [gig]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
 
-    const parsed: Record<string, number | null> = {};
+    const changed: Record<string, number | null> = {};
     for (const [id, val] of Object.entries(guesses)) {
-      parsed[id] = val !== "" ? Number(val) : null;
+      if (val !== initialGuesses[id]) {
+        changed[id] = val !== "" ? Number(val) : null;
+      }
     }
+
+    if (Object.keys(changed).length === 0) {
+      toast.info("Žádné změny k uložení");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const res = await fetch(`/api/gigs/${gig.id}/guesses`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guesses: parsed }),
+        body: JSON.stringify({ guesses: changed }),
       });
 
       if (!res.ok) {
