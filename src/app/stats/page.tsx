@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Target, TrendingUp, Medal, Star } from "lucide-react";
+import { Trophy, Target, TrendingUp, Star } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,13 +111,9 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
   return { stats, completedCount: completed.length, perGigPoints, podiums };
 }
 
-const rankIcons = [
-  <Trophy key="1" className="h-4 w-4 text-primary" />,
-  <Medal key="2" className="h-4 w-4 text-muted-foreground" />,
-  <Medal key="3" className="h-4 w-4 text-muted-foreground/60" />,
-];
+const rankMedals = ["🥇", "🥈", "🥉"];
 
-function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; minimal?: boolean }) {
+function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal, showBothAvg }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; minimal?: boolean; showBothAvg?: boolean }) {
   if (stats.length === 0) return null;
   return (
     <Card>
@@ -140,19 +136,21 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal }: {
                 <Trophy className="h-3.5 w-3.5 sm:hidden mx-auto" />
               </TableHead>
               <TableHead className="text-center hidden sm:table-cell">{minimal ? "Prům. body" : "Prům. místo"}</TableHead>
+              {showBothAvg && <TableHead className="text-center hidden sm:table-cell">Prům. místo</TableHead>}
               {!hideGigs && !minimal && <TableHead className="text-center pr-4">Tipů</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {stats.map((s, idx) => (
-              <TableRow key={s.id} className={cn(idx === 0 && "bg-primary/5")}>
+              <TableRow key={s.id}>
                 <TableCell className="font-medium pl-4">
-                  {rankIcons[idx] || <span className="text-muted-foreground">{idx + 1}</span>}
+                  {rankMedals[idx] ?? <span className="text-muted-foreground">{idx + 1}</span>}
                 </TableCell>
-                <TableCell className={cn("font-medium", idx === 0 && "text-primary")}>{s.name}</TableCell>
+                <TableCell className={cn("font-medium", idx < 3 && "font-bold")}>{s.name}</TableCell>
                 {!hidePoints && <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>}
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
                 <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>
+                {showBothAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{avgPointsToPosition(s.avgPoints)}</TableCell>}
                 {!hideGigs && !minimal && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
               </TableRow>
             ))}
@@ -248,7 +246,7 @@ export default function StatsPage() {
             })()}
 
             <StatsTable title="🏆 Celkový žebříček" stats={stats} />
-            {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints />}
+            {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg />}
             {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
             <PodiumChart podiums={podiums} />
             <StatsTable title="🎸 Kapela" stats={bandStats} />
