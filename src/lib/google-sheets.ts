@@ -387,7 +387,7 @@ export async function getAllGigs(): Promise<Gig[]> {
   const pointsSheetCreated = await ensurePointsSheet(members);
 
   const headers = await getGigsHeaders();
-  const lastCol = String.fromCharCode("A".charCodeAt(0) + headers.length - 1);
+  const lastCol = colLetter(headers.length - 1);
 
   if (pointsSheetCreated) {
     await recalculateAllPoints();
@@ -450,7 +450,7 @@ export async function createGig(data: { name: string; date: string; location: st
     return "";
   });
 
-  const lastCol = String.fromCharCode("A".charCodeAt(0) + headers.length - 1);
+  const lastCol = colLetter(headers.length - 1);
   await sheets.spreadsheets.values.append({
     spreadsheetId: id,
     range: `${GIGS_SHEET}!A:${lastCol}`,
@@ -474,7 +474,7 @@ export async function updateGuesses(gigId: string, guesses: Record<string, numbe
     const colName = `guess_${memberId}`;
     const colIdx = headers.indexOf(colName);
     if (colIdx === -1) continue;
-    const col = String.fromCharCode("A".charCodeAt(0) + colIdx);
+    const col = colLetter(colIdx);
     await sheets.spreadsheets.values.update({
       spreadsheetId: id,
       range: `${GIGS_SHEET}!${col}${rowIdx}`,
@@ -485,7 +485,7 @@ export async function updateGuesses(gigId: string, guesses: Record<string, numbe
 
   const updatedIdx = headers.indexOf("updated_at");
   if (updatedIdx >= 0) {
-    const col = String.fromCharCode("A".charCodeAt(0) + updatedIdx);
+    const col = colLetter(updatedIdx);
     await sheets.spreadsheets.values.update({
       spreadsheetId: id,
       range: `${GIGS_SHEET}!${col}${rowIdx}`,
@@ -496,7 +496,7 @@ export async function updateGuesses(gigId: string, guesses: Record<string, numbe
 
   const actualIdx = headers.indexOf("actual_count");
   if (actualIdx >= 0) {
-    const lastCol = String.fromCharCode("A".charCodeAt(0) + headers.length - 1);
+    const lastCol = colLetter(headers.length - 1);
     const rowRes = await sheets.spreadsheets.values.get({
       spreadsheetId: id,
       range: `${GIGS_SHEET}!A${rowIdx}:${lastCol}${rowIdx}`,
@@ -519,7 +519,13 @@ export async function updateGuesses(gigId: string, guesses: Record<string, numbe
 }
 
 function colLetter(idx: number): string {
-  return String.fromCharCode("A".charCodeAt(0) + idx);
+  let result = '';
+  let num = idx;
+  while (num >= 0) {
+    result = String.fromCharCode((num % 26) + 65) + result;
+    num = Math.floor(num / 26) - 1;
+  }
+  return result;
 }
 
 function calculatePoints(
@@ -607,7 +613,7 @@ export async function updateGig(gigId: string, data: { name?: string; date?: str
   for (const [header, value] of fields) {
     const colIdx = headers.indexOf(header);
     if (colIdx === -1) continue;
-    const col = String.fromCharCode("A".charCodeAt(0) + colIdx);
+    const col = colLetter(colIdx);
     await sheets.spreadsheets.values.update({
       spreadsheetId: id,
       range: `${GIGS_SHEET}!${col}${rowIdx}`,
@@ -618,7 +624,7 @@ export async function updateGig(gigId: string, data: { name?: string; date?: str
 
   const updatedIdx = headers.indexOf("updated_at");
   if (updatedIdx >= 0) {
-    const col = String.fromCharCode("A".charCodeAt(0) + updatedIdx);
+    const col = colLetter(updatedIdx);
     await sheets.spreadsheets.values.update({
       spreadsheetId: id,
       range: `${GIGS_SHEET}!${col}${rowIdx}`,
