@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Save, X } from "lucide-react";
+import { Users, Save, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,9 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
   );
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [deletingResult, setDeletingResult] = useState(false);
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +61,38 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
       toast.error("Chyba připojení");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDeleteResult() {
+    if (!adminPassword.trim()) {
+      toast.error("Zadej administrátorské heslo");
+      return;
+    }
+
+    setDeletingResult(true);
+
+    try {
+      const res = await fetch(`/api/gigs/${gig.id}/result`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPassword }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Nepodařilo se smazat výsledek");
+        return;
+      }
+
+      toast.success("Výsledek smazán a body odebrány!");
+      setDeleteDialogOpen(false);
+      setAdminPassword("");
+      onSaved();
+    } catch {
+      toast.error("Chyba připojení");
+    } finally {
+      setDeletingResult(false);
     }
   }
 
@@ -99,6 +134,18 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
                 </Button>
               )}
             </div>
+
+            {gig.actualCount != null && (
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full gap-2 h-12 text-base"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-5 w-5" />
+                Smazat výsledek (admin)
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -117,6 +164,47 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
             </Button>
             <Button onClick={handleConfirm}>
               Ano
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Smazat výsledek</DialogTitle>
+            <DialogDescription>
+              Tato akce smaže výsledek a odebere všechny přidělené body. Zadej administrátorské heslo pro potvrzení.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="adminPassword">Administrátorské heslo</Label>
+            <Input
+              id="adminPassword"
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Zadej admin heslo"
+              disabled={deletingResult}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setAdminPassword("");
+              }}
+              disabled={deletingResult}
+            >
+              Zrušit
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteResult}
+              disabled={deletingResult || !adminPassword.trim()}
+            >
+              {deletingResult ? "Mažu..." : "Smazat výsledek"}
             </Button>
           </DialogFooter>
         </DialogContent>

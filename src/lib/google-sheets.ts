@@ -598,6 +598,41 @@ export async function updateResult(gigId: string, actualCount: number): Promise<
   invalidateCache();
 }
 
+export async function clearResult(gigId: string): Promise<void> {
+  const sheets = getSheetsClient();
+  const id = getSheetId();
+  const rowIdx = await findGigRowIndex(gigId);
+  if (!rowIdx) throw new Error("Gig not found");
+
+  const members = await getAllMembers();
+  await ensureGigsSheet(members);
+  const headers = await getGigsHeaders();
+
+  const actualIdx = headers.indexOf("actual_count");
+  if (actualIdx === -1) throw new Error("actual_count column not found");
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: id,
+    range: `${GIGS_SHEET}!${colLetter(actualIdx)}${rowIdx}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[""]] },
+  });
+
+  await deletePointsRow(gigId);
+
+  const updatedIdx = headers.indexOf("updated_at");
+  if (updatedIdx >= 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${GIGS_SHEET}!${colLetter(updatedIdx)}${rowIdx}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[new Date().toISOString()]] },
+    });
+  }
+
+  invalidateCache();
+}
+
 export async function updateGig(gigId: string, data: { name?: string; date?: string; location?: string }): Promise<void> {
   const sheets = getSheetsClient();
   const id = getSheetId();

@@ -71,6 +71,10 @@ export function checkPassword(password: string): boolean {
   return password === process.env.SHARED_PASSWORD;
 }
 
+export function checkAdminPassword(password: string): boolean {
+  return password === process.env.ADMIN_PASSWORD;
+}
+
 export async function setAuthCookie() {
   const token = await createToken();
   (await cookies()).set(COOKIE_NAME, token, {
