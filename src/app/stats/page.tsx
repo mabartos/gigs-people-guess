@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Target, TrendingUp, Star } from "lucide-react";
+import { Trophy, Target, TrendingUp, Star, Calendar } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +36,28 @@ interface MemberStats {
   totalGigs: number;
   totalAllGigs: number;
   avgPoints: number;
+}
+
+function getMonthKey(dateStr: string): string {
+  return dateStr.substring(0, 7); // YYYY-MM
+}
+
+function getMonthName(monthKey: string): string {
+  const [year, month] = monthKey.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  const name = date.toLocaleDateString("cs-CZ", { month: "long", year: "numeric" });
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function getCurrentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPreviousMonthKey(): string {
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; completedCount: number; perGigPoints: Record<string, number[]>; podiums: PodiumEntry[] } {
@@ -177,6 +199,15 @@ export default function StatsPage() {
   }, []);
 
   const { stats, completedCount, perGigPoints, podiums } = computeStats(gigs, members);
+  
+  // Monthly stats
+  const currentMonthKey = getCurrentMonthKey();
+  const previousMonthKey = getPreviousMonthKey();
+  const currentMonthGigs = gigs.filter((g) => getMonthKey(g.date) === currentMonthKey);
+  const previousMonthGigs = gigs.filter((g) => getMonthKey(g.date) === previousMonthKey);
+  const currentMonthStats = computeStats(currentMonthGigs, members).stats;
+  const previousMonthStats = computeStats(previousMonthGigs, members).stats;
+  
   const bandIds = new Set(members.filter((m) => m.type === "band").map((m) => m.id));
   const crewIds = new Set(members.filter((m) => m.type === "crew").map((m) => m.id));
   const bandStats = stats.filter((s) => bandIds.has(s.id));
@@ -246,6 +277,23 @@ export default function StatsPage() {
             })()}
 
             <StatsTable title="🏆 Celkový žebříček" stats={stats} />
+            
+            {currentMonthStats.length > 0 && (
+              <StatsTable 
+                title={`📅 ${getMonthName(currentMonthKey)}`} 
+                subtitle="Aktuální měsíc"
+                stats={currentMonthStats} 
+              />
+            )}
+            
+            {previousMonthStats.length > 0 && (
+              <StatsTable 
+                title={`📅 ${getMonthName(previousMonthKey)}`} 
+                subtitle="Předchozí měsíc"
+                stats={previousMonthStats} 
+              />
+            )}
+            
             {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg />}
             {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
             <PodiumChart podiums={podiums} />
