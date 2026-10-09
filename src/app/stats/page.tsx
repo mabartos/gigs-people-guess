@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Target, TrendingUp, Star, Calendar } from "lucide-react";
+import { Trophy, Target, TrendingUp, Star } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { POINTS_TABLE, getPositionPoints } from "@/lib/constants";
 import { PodiumChart } from "@/components/podium-chart";
+import { RankingChange } from "@/components/position-change";
 import type { PodiumEntry } from "@/components/podium-chart";
 import type { Gig, Member } from "@/types";
 import { cn } from "@/lib/utils";
@@ -133,11 +134,54 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
   return { stats, completedCount: completed.length, perGigPoints, podiums };
 }
 
+function getLatestCompletedGig(gigs: Gig[]): Gig | undefined {
+  return gigs
+    .filter((g) => g.actualCount != null)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
+}
+
+function getPreviousGigs(gigs: Gig[]): Gig[] {
+  const latestGig = getLatestCompletedGig(gigs);
+  return latestGig ? gigs.filter((g) => g.id !== latestGig.id) : gigs;
+}
+
+function getLatestMedals(gigs: Gig[], members: Member[]): Record<string, number> {
+  const latestGig = getLatestCompletedGig(gigs);
+  if (!latestGig) return {};
+  const { podiums } = computeStats([latestGig], members);
+  return Object.fromEntries(podiums.map((p) => [p.id, p.gold ? 1 : p.silver ? 2 : 3]));
+}
+
+function getPositionChanges(stats: { id: string }[], previousStats: { id: string }[]): Record<string, number | null> {
+  const previousPositions = new Map(previousStats.map((s, index) => [s.id, index]));
+  return Object.fromEntries(stats.map((s, index) => {
+    const previousPosition = previousPositions.get(s.id);
+    return [s.id, previousPosition == null ? null : previousPosition - index];
+  }));
+}
+
+function getRegularStats(stats: MemberStats[], perGigPoints: Record<string, number[]>, minGigs: number): MemberStats[] {
+  return stats
+    .filter((s) => s.totalGigs >= minGigs)
+    .map((s) => {
+      const best = [...(perGigPoints[s.id] || [])].sort((a, b) => b - a).slice(0, minGigs);
+      const totalPoints = best.reduce((sum, p) => sum + p, 0);
+      return { ...s, totalPoints, avgPoints: best.length ? Math.round(totalPoints / best.length * 10) / 10 : 0 };
+    })
+    .sort((a, b) => b.totalPoints - a.totalPoints || b.avgPoints - a.avgPoints);
+}
+
+function getEfficientStats(stats: MemberStats[], minParticipation: number): MemberStats[] {
+  return stats
+    .filter((s) => s.totalGigs >= minParticipation)
+    .sort((a, b) => b.avgPoints - a.avgPoints || b.wins - a.wins);
+}
+
 const rankMedals = ["🥇", "🥈", "🥉"];
 const SHOW_EFFICIENT_STATS = false;
 const SHOW_BAND_STATS = false;
 
-function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, hideAvg, minimal, showBothAvg }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; hideAvg?: boolean; minimal?: boolean; showBothAvg?: boolean }) {
+function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, hideAvg, minimal, showBothAvg, positionChanges, latestMedals }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; hideAvg?: boolean; minimal?: boolean; showBothAvg?: boolean; positionChanges?: Record<string, number | null>; latestMedals?: Record<string, number> }) {
   if (stats.length === 0) return null;
   return (
     <Card>
@@ -161,7 +205,8 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, hideAvg, min
               </TableHead>
               {!hideAvg && <TableHead className="text-center hidden sm:table-cell">{minimal ? "Prům. body" : "Prům. místo"}</TableHead>}
               {!hideAvg && showBothAvg && <TableHead className="text-center hidden sm:table-cell">Prům. místo</TableHead>}
-              {!hideGigs && !minimal && <TableHead className="text-center pr-4">Tipů</TableHead>}
+              {!hideGigs && !minimal && <TableHead className={cn("text-center", !positionChanges && "pr-4")}>Tipů</TableHead>}
+              {positionChanges && <TableHead className="w-24 pr-4 text-center" title="Změna pořadí oproti stavu před posledním koncertem a medaile z tohoto koncertu">Změna</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,7 +220,12 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, hideAvg, min
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
                 {!hideAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>}
                 {!hideAvg && showBothAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{avgPointsToPosition(s.avgPoints)}</TableCell>}
-                {!hideGigs && !minimal && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
+                {!hideGigs && !minimal && <TableCell className={cn("text-center text-muted-foreground", !positionChanges && "pr-4")}>{s.totalGigs}/{s.totalAllGigs}</TableCell>}
+                {positionChanges && (
+                  <TableCell className="pr-4 text-center">
+                    <RankingChange change={positionChanges[s.id] ?? null} medal={latestMedals?.[s.id]} />
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -201,6 +251,10 @@ export default function StatsPage() {
   }, []);
 
   const { stats, completedCount, perGigPoints, podiums } = computeStats(gigs, members);
+  const previous = computeStats(getPreviousGigs(gigs), members);
+  const positionChanges = getPositionChanges(stats, previous.stats);
+  const podiumChanges = getPositionChanges(podiums, previous.podiums);
+  const latestMedals = getLatestMedals(gigs, members);
   
   // Monthly stats
   const currentMonthKey = getCurrentMonthKey();
@@ -209,6 +263,8 @@ export default function StatsPage() {
   const previousMonthGigs = gigs.filter((g) => getMonthKey(g.date) === previousMonthKey);
   const currentMonthStats = computeStats(currentMonthGigs, members).stats;
   const previousMonthStats = computeStats(previousMonthGigs, members).stats;
+  const currentMonthChanges = getPositionChanges(currentMonthStats, computeStats(getPreviousGigs(currentMonthGigs), members).stats);
+  const currentMonthMedals = getLatestMedals(currentMonthGigs, members);
   
   const bandIds = new Set(members.filter((m) => m.type === "band").map((m) => m.id));
   const crewIds = new Set(members.filter((m) => m.type === "crew").map((m) => m.id));
@@ -220,20 +276,18 @@ export default function StatsPage() {
   const bandStats = stats.filter((s) => bandIds.has(s.id));
   const crewStats = stats.filter((s) => crewIds.has(s.id) && !technicianIds.has(s.id));
   const technicianStats = stats.filter((s) => technicianIds.has(s.id));
+  const bandChanges = getPositionChanges(bandStats, previous.stats.filter((s) => bandIds.has(s.id)));
+  const crewChanges = getPositionChanges(crewStats, previous.stats.filter((s) => crewIds.has(s.id) && !technicianIds.has(s.id)));
+  const technicianChanges = getPositionChanges(technicianStats, previous.stats.filter((s) => technicianIds.has(s.id)));
   const minGigs = Math.max(1, completedCount - 5);
-  const regulars = stats
-    .filter((s) => s.totalGigs >= minGigs)
-    .map((s) => {
-      const best = (perGigPoints[s.id] || []).sort((a, b) => b - a).slice(0, minGigs);
-      const totalPoints = best.reduce((sum, p) => sum + p, 0);
-      return { ...s, totalPoints, avgPoints: best.length ? Math.round(totalPoints / best.length * 10) / 10 : 0 };
-    })
-    .sort((a, b) => b.totalPoints - a.totalPoints || b.avgPoints - a.avgPoints);
+  const regulars = getRegularStats(stats, perGigPoints, minGigs);
+  const previousRegulars = getRegularStats(previous.stats, previous.perGigPoints, Math.max(1, previous.completedCount - 5));
+  const regularChanges = getPositionChanges(regulars, previousRegulars);
 
   const minParticipation = Math.ceil(completedCount * 0.3);
-  const efficient = stats
-    .filter((s) => s.totalGigs >= minParticipation)
-    .sort((a, b) => b.avgPoints - a.avgPoints || b.wins - a.wins);
+  const efficient = getEfficientStats(stats, minParticipation);
+  const previousEfficient = getEfficientStats(previous.stats, Math.ceil(previous.completedCount * 0.3));
+  const efficientChanges = getPositionChanges(efficient, previousEfficient);
 
   return (
     <>
@@ -270,7 +324,10 @@ export default function StatsPage() {
                   </Card>
                   <Card>
                     <CardContent className="p-4 text-center">
-                      <div className={`font-bold text-primary ${topNames.length > 2 ? "text-base" : topNames.length > 1 ? "text-xl" : "text-2xl"}`}>{topNames.join(", ")}</div>
+                      <div className={`font-bold text-primary ${topNames.length > 2 ? "text-base" : topNames.length > 1 ? "text-xl" : "text-2xl"}`}>
+                        <span aria-hidden="true">👑 </span>
+                        {topNames.join(", ")}
+                      </div>
                       <div className="text-xs text-muted-foreground">{topNames.length > 1 ? "nejlepší tipéři" : "nejlepší tipér"}</div>
                     </CardContent>
                   </Card>
@@ -284,13 +341,16 @@ export default function StatsPage() {
               );
             })()}
 
-            <StatsTable title="🏆 Celkový žebříček" stats={stats} hideAvg />
+            <StatsTable title="🏆 Celkový žebříček" stats={stats} hideAvg positionChanges={positionChanges} latestMedals={latestMedals} />
             
             {currentMonthStats.length > 0 && (
               <StatsTable 
                 title={`📅 ${getMonthName(currentMonthKey)}`} 
                 subtitle="Aktuální měsíc"
                 stats={currentMonthStats} 
+                hideAvg
+                positionChanges={currentMonthChanges}
+                latestMedals={currentMonthMedals}
               />
             )}
             
@@ -302,12 +362,12 @@ export default function StatsPage() {
               />
             )}
             
-            {SHOW_EFFICIENT_STATS && efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg />}
-            {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
-            {SHOW_BAND_STATS && <StatsTable title="🎸 Kapela" stats={bandStats} />}
-            <StatsTable title="🎧 Crew" stats={crewStats} />
-            <StatsTable title="📦 Technici" stats={technicianStats} />
-            <PodiumChart podiums={podiums} />
+            {SHOW_EFFICIENT_STATS && efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg positionChanges={efficientChanges} latestMedals={latestMedals} />}
+            {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal positionChanges={regularChanges} latestMedals={latestMedals} />}
+            {SHOW_BAND_STATS && <StatsTable title="🎸 Kapela" stats={bandStats} positionChanges={bandChanges} latestMedals={latestMedals} />}
+            <StatsTable title="🎧 Crew" stats={crewStats} positionChanges={crewChanges} latestMedals={latestMedals} />
+            <StatsTable title="📦 Technici" stats={technicianStats} positionChanges={technicianChanges} latestMedals={latestMedals} />
+            <PodiumChart podiums={podiums} positionChanges={podiumChanges} latestMedals={latestMedals} />
 
             <Card>
               <CardHeader>
