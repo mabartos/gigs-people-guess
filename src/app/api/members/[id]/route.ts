@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteMember } from "@/lib/google-sheets";
-import { checkPassword } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    const body = await request.json();
-
-    if (!body.password || !checkPassword(body.password)) {
-      return NextResponse.json({ error: "Špatné heslo" }, { status: 401 });
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Tato akce je pouze pro administrátora" }, { status: 403 });
     }
-
+    const { id } = await params;
     await deleteMember(id);
     return NextResponse.json({ success: true });
   } catch (error) {

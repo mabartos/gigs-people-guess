@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllMembers, addMember } from "@/lib/google-sheets";
+import { isAdmin } from "@/lib/auth";
 import type { MemberType } from "@/types";
 
 export async function GET() {
@@ -14,6 +15,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Tato akce je pouze pro administrátora" }, { status: 403 });
+    }
     const body = await request.json();
     const { name, icon, type, role } = body;
 

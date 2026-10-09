@@ -13,6 +13,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Špatné heslo" }, { status: 401 });
   }
 
-  await setAuthCookie();
+  await setAuthCookie(checkAdminPassword(password) ? "admin" : "member");
   return NextResponse.json({ success: true });
 }

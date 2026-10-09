@@ -24,7 +24,6 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   const [deletingResult, setDeletingResult] = useState(false);
 
   function handleFormSubmit(e: React.FormEvent) {
@@ -65,18 +64,11 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
   }
 
   async function handleDeleteResult() {
-    if (!adminPassword.trim()) {
-      toast.error("Zadej administrátorské heslo");
-      return;
-    }
-
     setDeletingResult(true);
 
     try {
       const res = await fetch(`/api/gigs/${gig.id}/result`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminPassword }),
       });
 
       if (!res.ok) {
@@ -87,7 +79,6 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
 
       toast.success("Výsledek smazán a body odebrány!");
       setDeleteDialogOpen(false);
-      setAdminPassword("");
       onSaved();
     } catch {
       toast.error("Chyba připojení");
@@ -174,26 +165,14 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
           <DialogHeader>
             <DialogTitle>Smazat výsledek</DialogTitle>
             <DialogDescription>
-              Tato akce smaže výsledek a odebere všechny přidělené body. Zadej administrátorské heslo pro potvrzení.
+              Tato akce smaže výsledek a odebere všechny přidělené body. Opravdu chceš pokračovat?
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="adminPassword">Administrátorské heslo</Label>
-            <Input
-              id="adminPassword"
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              placeholder="Zadej admin heslo"
-              disabled={deletingResult}
-            />
-          </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setDeleteDialogOpen(false);
-                setAdminPassword("");
               }}
               disabled={deletingResult}
             >
@@ -202,7 +181,7 @@ export function ResultForm({ gig, onSaved, onCancel }: { gig: Gig; onSaved: () =
             <Button
               variant="destructive"
               onClick={handleDeleteResult}
-              disabled={deletingResult || !adminPassword.trim()}
+              disabled={deletingResult}
             >
               {deletingResult ? "Mažu..." : "Smazat výsledek"}
             </Button>

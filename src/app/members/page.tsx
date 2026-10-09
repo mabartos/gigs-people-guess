@@ -21,6 +21,7 @@ import {
 import type { Member } from "@/types";
 import { MEMBER_CATEGORIES, CREW_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
+import { useAdmin } from "@/hooks/use-admin";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   guitar: Guitar, mic: Mic, music: Music, drum: Drum,
@@ -40,6 +41,7 @@ const iconOptions = [
 ];
 
 export default function MembersPage() {
+  const isAdmin = useAdmin();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -48,7 +50,6 @@ export default function MembersPage() {
   const [category, setCategory] = useState("Zvuk");
   const [addLoading, setAddLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deletePassword, setDeletePassword] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
@@ -99,8 +100,6 @@ export default function MembersPage() {
     try {
       const res = await fetch(`/api/members/${deleteId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: deletePassword }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -109,7 +108,6 @@ export default function MembersPage() {
       }
       toast.success("Člen smazán");
       setDeleteId(null);
-      setDeletePassword("");
       fetchMembers();
     } catch {
       setDeleteError("Chyba připojení");
@@ -133,13 +131,13 @@ export default function MembersPage() {
           <Icon className="h-5 w-5 text-primary" />
           <span className="font-medium">{m.name}</span>
         </div>
-        <Button
+        {isAdmin && <Button
           variant="ghost" size="icon"
           className="text-muted-foreground hover:text-destructive h-9 w-9"
           onClick={() => setDeleteId(m.id)}
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </Button>}
       </div>
     );
   }
@@ -153,7 +151,7 @@ export default function MembersPage() {
             <Users className="h-6 w-6 text-primary" />
             Členové
           </h1>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          {isAdmin && <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger render={<Button className="gap-2 h-10 px-4" />}>
               <UserPlus className="h-5 w-5" />
               <span className="hidden sm:inline">Přidat člena</span>
@@ -207,7 +205,7 @@ export default function MembersPage() {
                 </DialogFooter>
               </form>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
 
         {loading ? (
@@ -240,25 +238,18 @@ export default function MembersPage() {
           </>
         )}
 
-        <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) { setDeleteId(null); setDeletePassword(""); setDeleteError(""); } }}>
+        <Dialog open={isAdmin && !!deleteId} onOpenChange={(open) => { if (!open) { setDeleteId(null); setDeleteError(""); } }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Smazat člena</DialogTitle>
-              <DialogDescription>Pro potvrzení zadej heslo.</DialogDescription>
+              <DialogDescription>Opravdu chceš smazat tohoto člena? Tato akce je nevratná.</DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
-              <Input
-                type="password" value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Heslo kapely..."
-                className="h-11 text-base"
-                onKeyDown={(e) => { if (e.key === "Enter" && deletePassword) handleDelete(); }}
-              />
               {deleteError && <p className="text-sm text-destructive font-medium">{deleteError}</p>}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteId(null)}>Zrušit</Button>
-              <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading || !deletePassword}>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
                 {deleteLoading ? "Mažu..." : "Smazat"}
               </Button>
             </DialogFooter>

@@ -26,6 +26,7 @@ import {
 import type { Gig } from "@/types";
 import { getGigStatus, formatDateLong } from "@/lib/constants";
 import { toast } from "sonner";
+import { useAdmin } from "@/hooks/use-admin";
 
 const statusConfig = {
   new: { label: "Nový", className: "border-warning/50 text-warning" },
@@ -34,6 +35,7 @@ const statusConfig = {
 };
 
 export default function GigDetailPage() {
+  const isAdmin = useAdmin();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [gig, setGig] = useState<Gig | null>(null);
@@ -268,11 +270,11 @@ export default function GigDetailPage() {
 
         <GuessForm gig={gig} onSaved={fetchGig} />
 
-        {status === "completed" && !editingResult ? (
-          <ResultDisplay gig={gig} onEdit={() => setEditingResult(true)} />
-        ) : (
+        {status === "completed" && (!isAdmin || !editingResult) ? (
+          <ResultDisplay gig={gig} onEdit={isAdmin ? () => setEditingResult(true) : undefined} />
+        ) : isAdmin ? (
           <ResultForm gig={gig} onSaved={() => { setEditingResult(false); fetchGig(); }} onCancel={status === "completed" ? () => setEditingResult(false) : undefined} />
-        )}
+        ) : null}
       </main>
     </>
   );

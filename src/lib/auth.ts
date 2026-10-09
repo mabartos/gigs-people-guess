@@ -1,6 +1,14 @@
 import { cookies } from "next/headers";
 import { COOKIE_NAME, COOKIE_MAX_AGE } from "./constants";
 
+type SessionRole = "admin" | "member";
+
+interface Session {
+  authenticated: true;
+  role: SessionRole;
+  exp: number;
+}
+
 function getSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is not set");
@@ -25,7 +33,7 @@ function toBase64Url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64Url(str: string): Uint8Array {
+function fromBase64Url(str: string): Uint8Array<ArrayBuffer> {
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -40,9 +48,9 @@ async function sign(payload: string): Promise<string> {
   return toBase64Url(sig);
 }
 
-export async function createToken(): Promise<string> {
+export async function createToken(role: SessionRole = "member"): Promise<string> {
   const payload = btoa(
-    JSON.stringify({ authenticated: true, exp: Date.now() + COOKIE_MAX_AGE * 1000 })
+    JSON.stringify({ authenticated: true, role, exp: Date.now() + COOKIE_MAX_AGE * 1000 })
   )
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -51,20 +59,36 @@ export async function createToken(): Promise<string> {
   return `${payload}.${signature}`;
 }
 
-export async function verifyToken(token: string): Promise<boolean> {
-  const [payload, signature] = token.split(".");
-  if (!payload || !signature) return false;
-
-  const expected = await sign(payload);
-  if (expected !== signature) return false;
-
+async function readToken(token: string): Promise<Session | null> {
   try {
+    const [payload, signature, extra] = token.split(".");
+    if (!payload || !signature || extra !== undefined) return null;
+    const key = await getKey();
+    const valid = await crypto.subtle.verify(
+      "HMAC", key, fromBase64Url(signature), new TextEncoder().encode(payload)
+    );
+    if (!valid) return null;
     const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
     const data = JSON.parse(json);
-    return data.authenticated === true && data.exp > Date.now();
+    if (data.authenticated !== true || typeof data.exp !== "number" || data.exp <= Date.now()) return null;
+    if (data.role !== undefined && data.role !== "admin" && data.role !== "member") return null;
+    return { authenticated: true, role: data.role ?? "member", exp: data.exp };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function verifyToken(token: string): Promise<boolean> {
+  return (await readToken(token)) !== null;
+}
+
+export async function getSession(): Promise<Session | null> {
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  return token ? readToken(token) : null;
+}
+
+export async function isAdmin(): Promise<boolean> {
+  return (await getSession())?.role === "admin";
 }
 
 export function checkPassword(password: string): boolean {
@@ -72,11 +96,11 @@ export function checkPassword(password: string): boolean {
 }
 
 export function checkAdminPassword(password: string): boolean {
-  return password === process.env.ADMIN_PASSWORD;
+  return typeof password === "string" && password.length > 0 && password === process.env.ADMIN_PASSWORD;
 }
 
-export async function setAuthCookie() {
-  const token = await createToken();
+export async function setAuthCookie(role: SessionRole = "member") {
+  const token = await createToken(role);
   (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

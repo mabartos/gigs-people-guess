@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateResult, clearResult } from "@/lib/google-sheets";
-import { checkAdminPassword } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Tato akce je pouze pro administrátora" }, { status: 403 });
+    }
     const { id } = await params;
     const body = await request.json();
     const { actualCount } = body;
@@ -22,14 +25,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    const body = await request.json();
-    const { adminPassword } = body;
-
-    if (!adminPassword || !checkAdminPassword(adminPassword)) {
-      return NextResponse.json({ error: "Neplatné administrátorské heslo" }, { status: 401 });
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Tato akce je pouze pro administrátora" }, { status: 403 });
     }
-
+    const { id } = await params;
     await clearResult(id);
     return NextResponse.json({ success: true });
   } catch (error) {
