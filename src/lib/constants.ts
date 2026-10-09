@@ -27,7 +27,7 @@ export const POINTS_SHEET = "Body";
 export const MEMBERS_SHEET = "Členové";
 
 export const COOKIE_NAME = "thefeet-session";
-export const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+export const COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
 
 export const POINTS_TABLE = [12, 10, 8, 7, 6, 5, 4, 3, 2, 1];
 
