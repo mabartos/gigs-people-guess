@@ -134,8 +134,10 @@ function computeStats(gigs: Gig[], members: Member[]): { stats: MemberStats[]; c
 }
 
 const rankMedals = ["🥇", "🥈", "🥉"];
+const SHOW_EFFICIENT_STATS = false;
+const SHOW_BAND_STATS = false;
 
-function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal, showBothAvg }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; minimal?: boolean; showBothAvg?: boolean }) {
+function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, hideAvg, minimal, showBothAvg }: { title: string; subtitle?: string; stats: MemberStats[]; hideGigs?: boolean; hidePoints?: boolean; hideAvg?: boolean; minimal?: boolean; showBothAvg?: boolean }) {
   if (stats.length === 0) return null;
   return (
     <Card>
@@ -157,8 +159,8 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal, sho
                 <span className="hidden sm:inline">Výhry</span>
                 <Trophy className="h-3.5 w-3.5 sm:hidden mx-auto" />
               </TableHead>
-              <TableHead className="text-center hidden sm:table-cell">{minimal ? "Prům. body" : "Prům. místo"}</TableHead>
-              {showBothAvg && <TableHead className="text-center hidden sm:table-cell">Prům. místo</TableHead>}
+              {!hideAvg && <TableHead className="text-center hidden sm:table-cell">{minimal ? "Prům. body" : "Prům. místo"}</TableHead>}
+              {!hideAvg && showBothAvg && <TableHead className="text-center hidden sm:table-cell">Prům. místo</TableHead>}
               {!hideGigs && !minimal && <TableHead className="text-center pr-4">Tipů</TableHead>}
             </TableRow>
           </TableHeader>
@@ -171,8 +173,8 @@ function StatsTable({ title, subtitle, stats, hideGigs, hidePoints, minimal, sho
                 <TableCell className={cn("font-medium", idx < 3 && "font-bold", idx === 0 && "text-primary")}>{s.name}</TableCell>
                 {!hidePoints && <TableCell className="text-center font-bold text-primary">{s.totalPoints}</TableCell>}
                 <TableCell className="text-center font-semibold">{s.wins}</TableCell>
-                <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>
-                {showBothAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{avgPointsToPosition(s.avgPoints)}</TableCell>}
+                {!hideAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{minimal ? s.avgPoints : avgPointsToPosition(s.avgPoints)}</TableCell>}
+                {!hideAvg && showBothAvg && <TableCell className="text-center text-muted-foreground hidden sm:table-cell">{avgPointsToPosition(s.avgPoints)}</TableCell>}
                 {!hideGigs && !minimal && <TableCell className="text-center text-muted-foreground pr-4">{s.totalGigs}/{s.totalAllGigs}</TableCell>}
               </TableRow>
             ))}
@@ -210,9 +212,15 @@ export default function StatsPage() {
   
   const bandIds = new Set(members.filter((m) => m.type === "band").map((m) => m.id));
   const crewIds = new Set(members.filter((m) => m.type === "crew").map((m) => m.id));
+  const technicianIds = new Set(
+    members
+      .filter((m) => m.type === "crew" && m.icon === "package")
+      .map((m) => m.id)
+  );
   const bandStats = stats.filter((s) => bandIds.has(s.id));
-  const crewStats = stats.filter((s) => crewIds.has(s.id));
-  const minGigs = Math.max(1, completedCount - 3);
+  const crewStats = stats.filter((s) => crewIds.has(s.id) && !technicianIds.has(s.id));
+  const technicianStats = stats.filter((s) => technicianIds.has(s.id));
+  const minGigs = Math.max(1, completedCount - 5);
   const regulars = stats
     .filter((s) => s.totalGigs >= minGigs)
     .map((s) => {
@@ -276,7 +284,7 @@ export default function StatsPage() {
               );
             })()}
 
-            <StatsTable title="🏆 Celkový žebříček" stats={stats} />
+            <StatsTable title="🏆 Celkový žebříček" stats={stats} hideAvg />
             
             {currentMonthStats.length > 0 && (
               <StatsTable 
@@ -294,11 +302,12 @@ export default function StatsPage() {
               />
             )}
             
-            {efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg />}
+            {SHOW_EFFICIENT_STATS && efficient.length > 0 && <StatsTable title="🎖️ Nejefektivnější" subtitle={`Podle průměrného umístění (min. ${minParticipation} tipů z ${completedCount})`} stats={efficient} hidePoints minimal showBothAvg />}
             {regulars.length > 0 && <StatsTable title="🎯 Stálí tipéři" subtitle={`Počítá se ${minGigs} nejlepších tipů od každého`} stats={regulars} hideGigs minimal />}
-            <PodiumChart podiums={podiums} />
-            <StatsTable title="🎸 Kapela" stats={bandStats} />
+            {SHOW_BAND_STATS && <StatsTable title="🎸 Kapela" stats={bandStats} />}
             <StatsTable title="🎧 Crew" stats={crewStats} />
+            <StatsTable title="📦 Technici" stats={technicianStats} />
+            <PodiumChart podiums={podiums} />
 
             <Card>
               <CardHeader>
