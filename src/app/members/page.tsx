@@ -19,7 +19,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Member } from "@/types";
-import { MEMBER_CATEGORIES, CREW_CATEGORIES } from "@/lib/constants";
+import { MEMBER_CATEGORIES } from "@/lib/constants";
+import { getCrewGroups } from "@/lib/members";
 import { toast } from "sonner";
 import { useAdmin } from "@/hooks/use-admin";
 
@@ -52,6 +53,9 @@ export default function MembersPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const availableIconOptions = iconOptions.filter((option) =>
+    category === "technician" ? option.value === "package" : option.value !== "package"
+  );
 
   function fetchMembers() {
     fetch("/api/members")
@@ -72,9 +76,9 @@ export default function MembersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          icon,
+          icon: category === "technician" ? "package" : icon,
           type: category === "band" ? "band" : "crew",
-          role: category === "band" ? "" : category,
+          role: category === "band" ? "" : category === "technician" ? "Ostatní" : category,
         }),
       });
       if (!res.ok) {
@@ -117,11 +121,7 @@ export default function MembersPage() {
   }
 
   const band = members.filter((m) => m.type === "band");
-  const crewGroups: { label: string; members: Member[] }[] = CREW_CATEGORIES
-    .map((cat) => ({ label: cat, members: members.filter((m) => m.type === "crew" && m.role === cat) }))
-    .filter((g) => g.members.length > 0);
-  const crewOther = members.filter((m) => m.type === "crew" && !CREW_CATEGORIES.includes(m.role as typeof CREW_CATEGORIES[number]));
-  if (crewOther.length > 0) crewGroups.push({ label: "Ostatní", members: crewOther });
+  const crewGroups = getCrewGroups(members);
 
   function renderMember(m: Member) {
     const Icon = iconMap[m.icon] || Music;
@@ -162,13 +162,31 @@ export default function MembersPage() {
               </DialogHeader>
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="space-y-2">
+                  <Label className="text-base">Typ člena</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {MEMBER_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.value} type="button"
+                        onClick={() => {
+                          setCategory(cat.value);
+                          if (cat.value === "technician") setIcon("package");
+                          else if (icon === "package") setIcon("music");
+                        }}
+                        className={`rounded-lg border px-4 py-2 text-sm transition-colors ${category === cat.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label className="text-base">Jméno</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="např. Pepa" required className="h-11 text-base" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-base">Ikona</Label>
                   <div className="flex flex-wrap gap-2">
-                    {iconOptions.map((opt) => {
+                    {availableIconOptions.map((opt) => {
                       const I = iconMap[opt.value] || Music;
                       return (
                         <button
@@ -181,20 +199,6 @@ export default function MembersPage() {
                         </button>
                       );
                     })}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-base">Kategorie</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {MEMBER_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.value} type="button"
-                        onClick={() => setCategory(cat.value)}
-                        className={`rounded-lg border px-4 py-2 text-sm transition-colors ${category === cat.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
                   </div>
                 </div>
                 <DialogFooter>

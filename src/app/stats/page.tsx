@@ -14,6 +14,7 @@ import { RankingChange } from "@/components/position-change";
 import type { PodiumEntry } from "@/components/podium-chart";
 import type { Gig, Member } from "@/types";
 import { cn } from "@/lib/utils";
+import { isTechnician } from "@/lib/members";
 
 function avgPointsToPosition(avgPoints: number): string {
   let bestPos = POINTS_TABLE.length + 1;
@@ -270,7 +271,7 @@ export default function StatsPage() {
   const crewIds = new Set(members.filter((m) => m.type === "crew").map((m) => m.id));
   const technicianIds = new Set(
     members
-      .filter((m) => m.type === "crew" && m.icon === "package")
+      .filter(isTechnician)
       .map((m) => m.id)
   );
   const bandStats = stats.filter((s) => bandIds.has(s.id));

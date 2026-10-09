@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Gig, Member } from "@/types";
-import { CREW_CATEGORIES } from "@/lib/constants";
+import { getCrewGroups } from "@/lib/members";
 import { toast } from "sonner";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -91,11 +91,7 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
   }
 
   const band = members.filter((m) => m.type === "band");
-  const crewGroups: { label: string; members: Member[] }[] = CREW_CATEGORIES
-    .map((cat) => ({ label: cat, members: members.filter((m) => m.type === "crew" && m.role === cat) }))
-    .filter((g) => g.members.length > 0);
-  const crewOther = members.filter((m) => m.type === "crew" && !CREW_CATEGORIES.includes(m.role as typeof CREW_CATEGORIES[number]));
-  if (crewOther.length > 0) crewGroups.push({ label: "Ostatní", members: crewOther });
+  const crewGroups = getCrewGroups(members);
 
   function renderInput(member: Member) {
     const Icon = iconMap[member.icon] || Music;

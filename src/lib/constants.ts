@@ -19,7 +19,8 @@ export const CREW_CATEGORIES = ["Zvuk", "Světla"] as const;
 export const MEMBER_CATEGORIES = [
   { value: "band", label: "Kapela" },
   ...CREW_CATEGORIES.map((c) => ({ value: c, label: c })),
-  { value: "Ostatní", label: "Ostatní" },
+  { value: "Ostatní", label: "Crew" },
+  { value: "technician", label: "Technici" },
 ] as const;
 
 export const GIGS_SHEET = "Gigs";
