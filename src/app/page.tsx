@@ -23,7 +23,9 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const upcoming = gigs.filter((g) => getGigStatus(g) !== "completed");
+  const upcoming = gigs
+    .filter((g) => getGigStatus(g) !== "completed")
+    .sort((a, b) => a.date.localeCompare(b.date));
   const past = gigs.filter((g) => getGigStatus(g) === "completed");
 
   return (
