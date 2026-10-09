@@ -1,5 +1,5 @@
 import { google, sheets_v4 } from "googleapis";
-import type { Gig, Member } from "@/types";
+import type { Gig, Member, StatsData } from "@/types";
 import { GIGS_SHEET, POINTS_SHEET, MEMBERS_SHEET, DEFAULT_MEMBERS, getPositionPoints } from "./constants";
 
 let sheetsClient: sheets_v4.Sheets | null = null;
@@ -26,12 +26,24 @@ function getSheetsClient(): sheets_v4.Sheets {
 const CACHE_TTL = 10_000;
 let gigsCache: { data: Gig[]; timestamp: number } | null = null;
 let membersCache: { data: Member[]; timestamp: number } | null = null;
+const STATS_CACHE_TTL = 60_000;
+let statsCache: { data: StatsData; timestamp: number } | null = null;
+let statsInFlight: Promise<StatsData> | null = null;
+let statsVersion = 0;
+
+function invalidateStatsCache() {
+  statsCache = null;
+  statsInFlight = null;
+  statsVersion += 1;
+}
 
 function invalidateCache() {
   gigsCache = null;
+  invalidateStatsCache();
 }
 function invalidateMembersCache() {
   membersCache = null;
+  invalidateStatsCache();
 }
 
 // ── Members ──────────────────────────────────────────────────────────
@@ -86,7 +98,12 @@ export async function getAllMembers(): Promise<Member[]> {
     range: `${MEMBERS_SHEET}!A2:E`,
   });
 
-  const rows = res.data.values || [];
+  const members = rowsToMembers(res.data.values || []);
+  membersCache = { data: members, timestamp: Date.now() };
+  return members;
+}
+
+function rowsToMembers(rows: string[][]): Member[] {
   const seen = new Set<string>();
   const members: Member[] = [];
   for (const r of rows) {
@@ -103,7 +120,6 @@ export async function getAllMembers(): Promise<Member[]> {
     });
   }
 
-  membersCache = { data: members, timestamp: Date.now() };
   return members;
 }
 
@@ -155,6 +171,7 @@ export async function deleteMember(memberId: string): Promise<void> {
   });
 
   invalidateMembersCache();
+  invalidateCache();
 }
 
 // ── Gigs ─────────────────────────────────────────────────────────────
@@ -319,8 +336,13 @@ async function getAllPointsMap(): Promise<Record<string, Record<string, number>>
     range: `${POINTS_SHEET}!A2:${lastCol}`,
   });
 
+  return rowsToPointsMap([headers, ...(res.data.values || [])]);
+}
+
+function rowsToPointsMap(rows: string[][]): Record<string, Record<string, number>> {
+  const headers = rows[0] || [];
   const map: Record<string, Record<string, number>> = {};
-  for (const row of res.data.values || []) {
+  for (const row of rows.slice(1)) {
     const gigId = row[0];
     if (!gigId) continue;
     const points: Record<string, number> = {};
@@ -330,6 +352,48 @@ async function getAllPointsMap(): Promise<Record<string, Record<string, number>>
     map[gigId] = points;
   }
   return map;
+}
+
+async function readStatsData(): Promise<StatsData> {
+  const sheets = getSheetsClient();
+  const spreadsheetId = getSheetId();
+  const ranges = [`'${MEMBERS_SHEET}'!A:E`, `'${GIGS_SHEET}'`, `'${POINTS_SHEET}'`];
+  let response;
+  try {
+    response = await sheets.spreadsheets.values.batchGet({ spreadsheetId, ranges });
+  } catch (error) {
+    const apiError = error as { code?: number; message?: string };
+    if (apiError.code !== 400 || !apiError.message?.includes(`Unable to parse range: '${POINTS_SHEET}'`)) throw error;
+    response = await sheets.spreadsheets.values.batchGet({ spreadsheetId, ranges: ranges.slice(0, 2) });
+  }
+
+  const values = response.data.valueRanges || [];
+  const members = rowsToMembers((values[0]?.values || []).slice(1));
+  const gigRows = values[1]?.values || [];
+  const headers = gigRows[0] || [];
+  const pointsMap = rowsToPointsMap(values[2]?.values || []);
+  const gigs = gigRows.slice(1)
+    .filter((row) => row[0])
+    .map((row) => rowToGig(row, headers, members, pointsMap))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return { gigs, members };
+}
+
+export async function getStatsData(): Promise<StatsData> {
+  if (statsCache && Date.now() - statsCache.timestamp < STATS_CACHE_TTL) return statsCache.data;
+  if (statsInFlight) return statsInFlight;
+
+  const version = statsVersion;
+  const pending = readStatsData().then((data) => {
+    if (version === statsVersion) statsCache = { data, timestamp: Date.now() };
+    return data;
+  });
+  statsInFlight = pending;
+  try {
+    return await pending;
+  } finally {
+    if (statsInFlight === pending) statsInFlight = null;
+  }
 }
 
 async function writePointsRow(

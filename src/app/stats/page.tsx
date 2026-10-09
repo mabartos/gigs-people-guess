@@ -12,7 +12,7 @@ import { POINTS_TABLE, getPositionPoints } from "@/lib/constants";
 import { PodiumChart } from "@/components/podium-chart";
 import { RankingChange } from "@/components/position-change";
 import type { PodiumEntry } from "@/components/podium-chart";
-import type { Gig, Member } from "@/types";
+import type { Gig, Member, StatsData } from "@/types";
 import { cn } from "@/lib/utils";
 import { isTechnician } from "@/lib/members";
 
@@ -240,14 +240,16 @@ export default function StatsPage() {
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/gigs").then((r) => r.json()),
-      fetch("/api/members").then((r) => r.json()),
-    ])
-      .then(([g, m]) => { setGigs(g); setMembers(m); })
-      .catch(() => {})
+    fetch("/api/stats")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Nepodařilo se načíst statistiky");
+        return response.json() as Promise<StatsData>;
+      })
+      .then((data) => { setGigs(data.gigs); setMembers(data.members); })
+      .catch(() => { setError("Nepodařilo se načíst statistiky. Zkus obnovit stránku."); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -301,6 +303,10 @@ export default function StatsPage() {
 
         {loading ? (
           <Skeleton className="h-64 w-full rounded-lg" />
+        ) : error ? (
+          <Card>
+            <CardContent className="py-8 text-center text-destructive" role="alert">{error}</CardContent>
+          </Card>
         ) : stats.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">

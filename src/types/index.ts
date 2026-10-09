@@ -21,3 +21,8 @@ export interface Member {
   icon: string;
   type: MemberType;
 }
+
+export interface StatsData {
+  gigs: Gig[];
+  members: Member[];
+}

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:auth": "node --test tests/auth.test.mjs"
+    "test:auth": "node --test tests/auth.test.mjs",
+    "test:stats": "node --test tests/stats-data.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
