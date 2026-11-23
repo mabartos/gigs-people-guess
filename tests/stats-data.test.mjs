@@ -4,7 +4,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 
-function harness() {
+function harness(now = Date.now()) {
   const tables = {
     "Členové": [["id", "name", "role", "icon", "type"], ["a", "Alice", "", "mic", "band"], ["b", "Bob", "Ostatní", "package", "crew"]],
     Gigs: [["id", "name", "date", "location", "actual_count", "created_at", "updated_at", "guess_a", "guess_b"], ["old", "Older", "2026-01-01", "Prague", "100", "2026-01-01", "2026-01-01", "100", "110"], ["latest", "Latest", "2026-02-01", "Brno", "200", "2026-01-01", "2026-01-01", "180", "200"]],
@@ -12,7 +12,6 @@ function harness() {
   };
   const calls = [];
   const writes = [];
-  let now = Date.now();
   let deferred = null;
   let failure = null;
   const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -23,6 +22,8 @@ function harness() {
       const rows = tables[sheet];
       if (cells === "1:1") return { data: { values: clone([rows[0]]) } };
       if (cells === "A:A") return { data: { values: rows.map((row) => [row[0]]) } };
+      const dateCell = cells.match(/^C(\d+)$/);
+      if (dateCell) return { data: { values: [[rows[Number(dateCell[1]) - 1][2]]] } };
       return { data: { values: clone(rows.slice(1)) } };
     },
     batchGet: async ({ ranges }) => {
@@ -57,7 +58,10 @@ function harness() {
     return exports;
   }
   const constants = load("src/lib/constants.ts", {});
-  const api = load("src/lib/google-sheets.ts", { googleapis: { google }, "./constants": constants });
+  const guessDeadline = load("src/lib/guess-deadline.ts", {});
+  const api = load("src/lib/google-sheets.ts", {
+    googleapis: { google }, "./constants": constants, "./guess-deadline": guessDeadline,
+  });
   const scores = load("src/lib/gig-scores.ts", { "./constants": constants });
   const { getViceCityStats } = load("src/lib/vice-city.ts", { "./gig-scores": scores });
   return { api, calls, writes, clone, tables, getViceCityStats, advance: (ms) => { now += ms; },
@@ -191,4 +195,36 @@ test("a missing points sheet falls back to guesses without writing, while other 
   await assert.rejects(failed.api.getStatsData(), /Permission denied/);
   await failed.api.getStatsData();
   assert.equal(failed.calls.length, 2);
+});
+
+test("guess submissions close exactly at 21:30 in Prague in both winter and summer", async () => {
+  for (const [gigDate, deadlineUtc] of [
+    ["2026-02-01", "2026-02-01T20:30:00Z"],
+    ["2026-07-01", "2026-07-01T19:30:00Z"],
+  ]) {
+    const h = harness(Date.parse(deadlineUtc) - 1);
+    h.tables.Gigs[2][2] = gigDate;
+    assert.equal(await h.api.updateGuesses("latest", { a: 185 }, false), "saved");
+    assert.ok(h.writes.some(({ range }) => range === "Gigs!H3"));
+
+    h.advance(1);
+    h.writes.length = 0;
+    assert.equal(await h.api.updateGuesses("latest", { a: null }, false), "closed");
+    h.advance(12 * 60 * 60 * 1000);
+    assert.equal(await h.api.updateGuesses("latest", { a: 185 }, false), "closed");
+    assert.deepEqual(h.writes, []);
+    assert.equal(await h.api.updateGuesses("latest", { a: null }, true), "saved");
+    assert.ok(h.writes.some(({ range }) => range === "Gigs!H3"));
+  }
+});
+
+test("guess submissions use the latest stored date and close when it is invalid", async () => {
+  const h = harness(Date.parse("2026-01-01T22:00:00Z"));
+  assert.equal((await h.api.getGigById("latest")).date, "2026-02-01");
+  h.tables.Gigs[2][2] = "2026-01-01";
+  assert.equal(await h.api.updateGuesses("latest", { a: 185 }, false), "closed");
+  h.tables.Gigs[2][2] = "";
+  assert.equal(await h.api.updateGuesses("latest", { a: 185 }, false), "missing-date");
+  assert.equal(await h.api.updateGuesses("unknown", { a: 185 }, false), "not-found");
+  assert.deepEqual(h.writes, []);
 });

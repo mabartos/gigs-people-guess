@@ -35,16 +35,23 @@ function harness() {
     "next/headers": { cookies: async () => cookieStore },
     "./constants": constants,
   });
+  const guessDeadline = load("src/lib/guess-deadline.ts", {});
   const sheets = {
     getAllMembers: async () => [],
     addMember: async (member) => { mutations.push(["add", member.id]); },
     deleteMember: async (id) => { mutations.push(["delete", id]); },
     updateResult: async (id, count) => { mutations.push(["result", id, count]); },
     clearResult: async (id) => { mutations.push(["clear", id]); },
+    updateGuesses: async (id, guesses, isAdmin) => {
+      if (!isAdmin) return "closed";
+      mutations.push(["guesses", id, guesses]);
+      return "saved";
+    },
+    updateGig: async (id, { name, date }) => { mutations.push(["gig", id, name, date]); },
   };
   const route = (file) => load(file, {
     "next/server": { NextResponse: { json: (body, options) => Response.json(body, options) } },
-    "@/lib/auth": auth, "@/lib/google-sheets": sheets,
+    "@/lib/auth": auth, "@/lib/google-sheets": sheets, "@/lib/guess-deadline": guessDeadline,
   });
   const login = route("src/app/api/auth/login/route.ts").POST;
   const session = route("src/app/api/auth/session/route.ts").GET;
@@ -52,6 +59,8 @@ function harness() {
   const add = route("src/app/api/members/route.ts").POST;
   const remove = route("src/app/api/members/[id]/route.ts").DELETE;
   const result = route("src/app/api/gigs/[id]/result/route.ts");
+  const guesses = route("src/app/api/gigs/[id]/guesses/route.ts").PUT;
+  const gig = route("src/app/api/gigs/[id]/route.ts").PUT;
   const request = (body) => ({ json: async () => body });
   const params = { params: Promise.resolve({ id: "test" }) };
   const actions = [
@@ -65,7 +74,10 @@ function harness() {
     const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
     return `${encoded}.${createHmac("sha256", env.SESSION_SECRET).update(encoded).digest("base64url")}`;
   }
-  return { env, auth, writes, mutations, login, session, logout, request, actions, setToken, signed };
+  return { env, auth, writes, mutations, login, session, logout, request, actions, setToken, signed,
+    saveGuesses: (body) => guesses(request(body), params),
+    editGig: (body) => gig(request(body), params),
+  };
 }
 
 test("login assigns a signed role based only on the password and keeps the 365-day cookie", async () => {
@@ -126,4 +138,26 @@ test("session status is not cached and logout removes admin access", async () =>
   assert.equal(await h.auth.isAdmin(), false);
   assert.deepEqual(await (await h.session()).json(), { authenticated: false, isAdmin: false });
   for (const action of h.actions) assert.equal((await action()).status, 403);
+});
+
+test("only an authenticated admin can submit after the deadline or change the gig date", async () => {
+  const h = harness();
+  const guesses = { a: 100 };
+  assert.equal((await h.saveGuesses({ guesses })).status, 403);
+
+  await h.login(h.request({ password: "shared" }));
+  assert.equal((await h.saveGuesses({ guesses, isAdmin: true })).status, 409);
+  assert.equal((await h.editGig({ date: "2026-12-01" })).status, 403);
+  assert.deepEqual(h.mutations, []);
+  assert.equal((await h.editGig({ name: "Opravený název" })).status, 200);
+
+  await h.login(h.request({ password: "admin" }));
+  assert.equal((await h.saveGuesses({ guesses })).status, 200);
+  assert.equal((await h.editGig({ date: "2026-02-30" })).status, 400);
+  assert.equal((await h.editGig({ date: "2026-12-01" })).status, 200);
+  assert.deepEqual(h.mutations, [
+    ["gig", "test", "Opravený název", undefined],
+    ["guesses", "test", guesses],
+    ["gig", "test", undefined, "2026-12-01"],
+  ]);
 });

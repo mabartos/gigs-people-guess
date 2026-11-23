@@ -1,6 +1,7 @@
 import { google, sheets_v4 } from "googleapis";
 import type { Gig, Member, StatsData } from "@/types";
 import { GIGS_SHEET, POINTS_SHEET, MEMBERS_SHEET, DEFAULT_MEMBERS, getPositionPoints } from "./constants";
+import { getGuessDeadline } from "./guess-deadline";
 
 let sheetsClient: sheets_v4.Sheets | null = null;
 
@@ -526,13 +527,29 @@ export async function createGig(data: { name: string; date: string; location: st
   return rowToGig(row, headers, members, {});
 }
 
-export async function updateGuesses(gigId: string, guesses: Record<string, number | null>): Promise<void> {
+export async function updateGuesses(
+  gigId: string,
+  guesses: Record<string, number | null>,
+  isAdmin: boolean,
+): Promise<"saved" | "not-found" | "missing-date" | "closed"> {
   const sheets = getSheetsClient();
   const id = getSheetId();
   const rowIdx = await findGigRowIndex(gigId);
-  if (!rowIdx) throw new Error("Gig not found");
+  if (!rowIdx) return "not-found";
 
   const headers = await getGigsHeaders();
+  if (!isAdmin) {
+    const dateIdx = headers.indexOf("date");
+    if (dateIdx < 0) return "missing-date";
+
+    const dateCell = await sheets.spreadsheets.values.get({
+      spreadsheetId: id,
+      range: `${GIGS_SHEET}!${colLetter(dateIdx)}${rowIdx}`,
+    });
+    const deadline = getGuessDeadline(dateCell.data.values?.[0]?.[0]);
+    if (deadline === null) return "missing-date";
+    if (Date.now() >= deadline) return "closed";
+  }
 
   for (const [memberId, value] of Object.entries(guesses)) {
     const colName = `guess_${memberId}`;
@@ -580,6 +597,7 @@ export async function updateGuesses(gigId: string, guesses: Record<string, numbe
   }
 
   invalidateCache();
+  return "saved";
 }
 
 function colLetter(idx: number): string {

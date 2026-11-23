@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Gig, Member } from "@/types";
+import { getGuessDeadline, GUESS_DEADLINE_TIME } from "@/lib/guess-deadline";
 import { getCrewGroups } from "@/lib/members";
 import { toast } from "sonner";
 
@@ -24,14 +25,35 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   piano: Piano, headphones: Headphones, lightbulb: Lightbulb, package: Package, camera: Camera,
 };
 
-export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
+export function GuessForm({ gig, isAdmin, onSaved }: { gig: Gig; isAdmin: boolean; onSaved: () => void }) {
   const isCompleted = gig.actualCount != null;
+  const deadline = getGuessDeadline(gig.date);
+  const [checkedAt, setCheckedAt] = useState(Date.now);
+  const [rejectedDate, setRejectedDate] = useState<string | null>(null);
+  const deadlinePassed = deadline === null || checkedAt >= deadline || rejectedDate === gig.date;
+  const canEdit = isAdmin || !deadlinePassed;
   const [members, setMembers] = useState<Member[]>([]);
   const [guesses, setGuesses] = useState<Record<string, string>>({});
   const [initialGuesses, setInitialGuesses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showGuesses, setShowGuesses] = useState(isCompleted);
   const [confirmShowOpen, setConfirmShowOpen] = useState(false);
+
+  useEffect(() => {
+    if (deadline === null || deadlinePassed) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+    const scheduleCheck = () => {
+      const delay = Math.min(Math.max(0, deadline - Date.now()), 2_147_483_647);
+      timer = setTimeout(() => {
+        const now = Date.now();
+        if (now >= deadline) setCheckedAt(now);
+        else scheduleCheck();
+      }, delay);
+    };
+    scheduleCheck();
+    return () => clearTimeout(timer);
+  }, [deadline, deadlinePassed]);
 
   useEffect(() => {
     if (isCompleted) setShowGuesses(true);
@@ -53,6 +75,7 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canEdit) return;
 
     const changed: Record<string, number | null> = {};
     for (const [id, val] of Object.entries(guesses)) {
@@ -76,6 +99,7 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
       });
 
       if (!res.ok) {
+        if (res.status === 409) setRejectedDate(gig.date);
         const data = await res.json();
         toast.error(data.error || "Nepodařilo se uložit tipy");
         return;
@@ -95,10 +119,10 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
 
   function renderInput(member: Member) {
     const Icon = iconMap[member.icon] || Music;
-    const edited = guesses[member.id] !== initialGuesses[member.id];
-    const displayValue = showGuesses || edited ? (guesses[member.id] || "") : "";
-    const hasServerValue = initialGuesses[member.id] !== "" && initialGuesses[member.id] != null;
-    const placeholder = !showGuesses && hasServerValue && !edited ? "XXX" : "?";
+    const savedValue = initialGuesses[member.id] ?? "";
+    const edited = canEdit && guesses[member.id] !== savedValue;
+    const displayValue = edited ? (guesses[member.id] ?? "") : showGuesses ? savedValue : "";
+    const placeholder = !showGuesses && savedValue && !edited ? "XXX" : "?";
 
     return (
       <div key={member.id} className="flex items-center gap-3">
@@ -115,6 +139,7 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
           inputMode="numeric"
           min="0"
           value={displayValue}
+          disabled={!canEdit}
           onChange={(e) => setGuesses({ ...guesses, [member.id]: e.target.value })}
           placeholder={placeholder}
           className="max-w-32 h-11 text-base"
@@ -149,6 +174,14 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-4 text-sm text-muted-foreground" role="status">
+            {deadlinePassed
+              ? deadline === null
+                ? "Tipování je uzavřené, koncert nemá platné datum."
+                : `Tipování je uzavřené. Uzávěrka byla v ${GUESS_DEADLINE_TIME} v den koncertu.`
+              : `Tipy můžeš uložit do ${GUESS_DEADLINE_TIME} v den koncertu.`}
+            {deadlinePassed && isAdmin && " Jako admin můžeš tipy dál zadávat a upravovat."}
+          </p>
           <form onSubmit={handleSubmit} className="space-y-4">
             {band.length > 0 && (
               <div className="space-y-3">
@@ -164,10 +197,12 @@ export function GuessForm({ gig, onSaved }: { gig: Gig; onSaved: () => void }) {
               </div>
             ))}
 
-            <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
-              <Save className="h-5 w-5" />
-              {loading ? "Ukládám..." : "Uložit tipy"}
-            </Button>
+            {canEdit && (
+              <Button type="submit" className="w-full gap-2 h-12 text-base" disabled={loading}>
+                <Save className="h-5 w-5" />
+                {loading ? "Ukládám..." : "Uložit tipy"}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

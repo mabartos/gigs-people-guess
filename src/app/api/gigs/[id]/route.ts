@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGigById, updateGig, deleteGig } from "@/lib/google-sheets";
-import { checkPassword } from "@/lib/auth";
+import { checkPassword, isAdmin } from "@/lib/auth";
+import { getGuessDeadline } from "@/lib/guess-deadline";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +24,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const body = await request.json();
     const { name, date, location } = body;
+
+    if (date !== undefined) {
+      if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Datum koncertu může změnit jen admin." }, { status: 403 });
+      }
+      if (getGuessDeadline(date) === null) {
+        return NextResponse.json({ error: "Neplatné datum koncertu" }, { status: 400 });
+      }
+    }
 
     if (!name && !date && !location) {
       return NextResponse.json({ error: "Vyplň alespoň jedno pole" }, { status: 400 });

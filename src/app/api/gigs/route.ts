@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGuessDeadline } from "@/lib/guess-deadline";
 import { getAllGigs, createGig } from "@/lib/google-sheets";
 
 export async function GET() {
@@ -18,6 +19,9 @@ export async function POST(request: NextRequest) {
 
     if (!name || !date || !location) {
       return NextResponse.json({ error: "Vyplň všechna pole" }, { status: 400 });
+    }
+    if (getGuessDeadline(date) === null) {
+      return NextResponse.json({ error: "Neplatné datum koncertu" }, { status: 400 });
     }
 
     const gig = await createGig({ name, date, location });

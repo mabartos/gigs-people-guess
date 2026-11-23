@@ -106,11 +106,12 @@ export default function GigDetailPage() {
 
   async function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editDate) {
+    if (!gig) return;
+    if (isAdmin && !editDate) {
       setEditDateError("Zadej datum");
       return;
     }
-    const date = editDate;
+    const date = isAdmin && editDate !== gig.date ? editDate : undefined;
     setEditDateError("");
     setEditLoading(true);
 
@@ -182,7 +183,7 @@ export default function GigDetailPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Datum</Label>
-                  <input type="date" value={editDate} onChange={(e) => { setEditDate(e.target.value); setEditDateError(""); }} required className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+                  <input type="date" value={editDate} onChange={(e) => { setEditDate(e.target.value); setEditDateError(""); }} required={isAdmin} disabled={!isAdmin} className="h-11 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50" />
                   {editDateError && <p className="text-sm text-destructive font-medium">{editDateError}</p>}
                 </div>
                 <div className="space-y-1.5">
@@ -190,7 +191,7 @@ export default function GigDetailPage() {
                   <Input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} required className="h-11 text-base" />
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" className="gap-2 h-10" disabled={editLoading || !editName || !editDate || !editLocation}>
+                  <Button type="submit" className="gap-2 h-10" disabled={editLoading || !editName || (isAdmin && !editDate) || !editLocation}>
                     <Save className="h-4 w-4" />
                     {editLoading ? "Ukládám..." : "Uložit"}
                   </Button>
@@ -268,7 +269,7 @@ export default function GigDetailPage() {
           </div>
         )}
 
-        <GuessForm gig={gig} onSaved={fetchGig} />
+        <GuessForm gig={gig} isAdmin={isAdmin} onSaved={fetchGig} />
 
         {status === "completed" && (!isAdmin || !editingResult) ? (
           <ResultDisplay gig={gig} onEdit={isAdmin ? () => setEditingResult(true) : undefined} />
