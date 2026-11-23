@@ -2,7 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RankingChange } from "@/components/position-change";
+import type { LatestGigAwards } from "@/components/position-change";
+import { ViceCityStars } from "@/components/vice-city-stars";
 import { cn } from "@/lib/utils";
+import { getViceCityMedalStars } from "@/lib/vice-city";
 
 export interface PodiumEntry {
   id: string;
@@ -13,7 +16,7 @@ export interface PodiumEntry {
   total: number;
 }
 
-export function PodiumChart({ podiums, positionChanges, latestMedals }: { podiums: PodiumEntry[]; positionChanges: Record<string, number | null>; latestMedals: Record<string, number> }) {
+export function PodiumChart({ podiums, positionChanges, latestMedals }: { podiums: PodiumEntry[]; positionChanges: Record<string, number | null>; latestMedals: LatestGigAwards }) {
   if (podiums.length === 0) return null;
 
   const maxTotal = podiums[0].total;
@@ -25,8 +28,9 @@ export function PodiumChart({ podiums, positionChanges, latestMedals }: { podium
         <p className="text-xs text-muted-foreground">Umístění v top 3</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex justify-end px-3 text-xs text-muted-foreground">
+        <div className="flex justify-end gap-3 px-3 text-xs text-muted-foreground">
           <span className="w-[4.375rem] text-center" title="Změna pořadí v žebříčku pódií a medaile z posledního dokončeného koncertu">Změna</span>
+          {latestMedals.viceCity && <span className="hidden w-12 text-center sm:block" title="Hvězdy z posledního dokončeného koncertu">GTA VI</span>}
         </div>
         {podiums.map((p, idx) => (
           <div key={p.id} className={cn("rounded-lg p-3", idx === 0 ? "bg-primary/5 ring-1 ring-primary/20" : "bg-secondary/30")}>
@@ -34,7 +38,10 @@ export function PodiumChart({ podiums, positionChanges, latestMedals }: { podium
               <span className={cn("font-medium", idx === 0 && "text-primary")}>{p.name}</span>
               <span className="flex items-center gap-3">
                 <span className="text-sm font-bold text-muted-foreground">{p.total}x</span>
-                <RankingChange change={positionChanges[p.id] ?? null} medal={latestMedals[p.id]} />
+                <RankingChange change={positionChanges[p.id] ?? null} medal={latestMedals.medals[p.id]} />
+                {latestMedals.viceCity && (
+                  <span className="hidden w-12 text-center sm:block"><ViceCityStars stars={getViceCityMedalStars(latestMedals.medals[p.id])} /></span>
+                )}
               </span>
             </div>
             <div className="flex gap-1 h-5">

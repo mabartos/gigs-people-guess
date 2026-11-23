@@ -4,6 +4,11 @@ import { cn } from "@/lib/utils";
 const medals = ["🥇", "🥈", "🥉"];
 const medalLabels = ["Zlatá medaile", "Stříbrná medaile", "Bronzová medaile"];
 
+export interface LatestGigAwards {
+  medals: Record<string, number>;
+  viceCity: boolean;
+}
+
 export function RankingChange({ change, medal }: { change: number | null; medal?: number }) {
   return (
     <span className="inline-grid grid-cols-[1.25rem_3rem] items-center gap-0.5">

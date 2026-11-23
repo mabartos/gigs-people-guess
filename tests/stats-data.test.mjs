@@ -58,9 +58,71 @@ function harness() {
   }
   const constants = load("src/lib/constants.ts", {});
   const api = load("src/lib/google-sheets.ts", { googleapis: { google }, "./constants": constants });
-  return { api, calls, writes, clone, tables, advance: (ms) => { now += ms; },
+  const scores = load("src/lib/gig-scores.ts", { "./constants": constants });
+  const { getViceCityStats } = load("src/lib/vice-city.ts", { "./gig-scores": scores });
+  return { api, calls, writes, clone, tables, getViceCityStats, advance: (ms) => { now += ms; },
     defer: (promise) => { deferred = promise; }, fail: (error) => { failure = error; } };
 }
+
+test("Vice City awards stars from stored results on both contest boundaries and retains zero scores", () => {
+  const { getViceCityStats, clone } = harness();
+  const members = ["a", "b", "c", "d", "e"].map((id) => ({ id, name: id }));
+  const gigs = [
+    { date: "2026-11-18", actualCount: 100, points: { d: 12 } },
+    { date: "2026-11-19", actualCount: 128, points: { a: 12, b: 10, c: 8, d: 7 }, guesses: { a: 218, d: 128 } },
+    { date: "2026-12-27", actualCount: 518, points: { a: 12, b: 10, c: 8, d: 7 } },
+    { date: "2026-12-26", actualCount: null, points: { d: 12 } },
+    { date: "2026-12-28", actualCount: 100, points: { d: 12 } },
+  ];
+
+  const live = getViceCityStats(gigs, members, new Date("2026-12-27T22:59:59Z"));
+  assert.deepEqual(clone(live.club.map(({ id, stars }) => [id, stars])), [["a", 6]]);
+  assert.deepEqual(clone(live.challengers.map(({ id, stars, position }) => [id, stars, position])), [["b", 4, 1], ["c", 2, 2], ["d", 0, 3]]);
+  assert.equal(live.phase, "active");
+
+  const final = getViceCityStats(gigs, members, new Date("2026-12-27T23:00:00Z"));
+  assert.equal(final.phase, "finished");
+  assert.deepEqual(clone(final.club), clone(live.club));
+});
+
+test("Vice City includes a closing-night result published after midnight", () => {
+  const { getViceCityStats, clone } = harness();
+  const members = [{ id: "a", name: "a" }];
+  const earlierGig = { date: "2026-11-20", actualCount: 100, points: { a: 12 } };
+  const lastGig = { date: "2026-12-27", actualCount: null, points: {} };
+  const beforeResult = new Date("2026-12-28T02:29:59+01:00");
+  assert.equal(getViceCityStats([earlierGig], members, beforeResult).phase, "awaitingResult");
+
+  const waiting = getViceCityStats([earlierGig, lastGig], members, beforeResult);
+  assert.equal(waiting.phase, "awaitingResult");
+  assert.equal(waiting.club.length, 0);
+
+  const updatedAt = "2026-12-28T01:30:00Z";
+  const scoredGig = { ...lastGig, actualCount: 518, points: { a: 12 }, updatedAt };
+  const final = getViceCityStats([earlierGig, scoredGig], members, new Date(updatedAt));
+  assert.equal(final.phase, "finished");
+  assert.deepEqual(clone(final.club.map(({ stars }) => stars)), [6]);
+});
+
+test("Vice City promotes players at six stars and ranks the club by total stars", () => {
+  const { getViceCityStats, clone } = harness();
+  const members = ["a", "b", "c"].map((id) => ({ id, name: id }));
+  const firstGig = { date: "2026-11-21", actualCount: 100, points: { a: 12, b: 10, c: 8 } };
+  const secondGig = { ...firstGig, date: "2026-11-22" };
+  const thirdGig = { ...firstGig, date: "2026-12-01", points: { c: 12, b: 10 } };
+  const fourthGig = { ...firstGig, date: "2026-12-02", points: { b: 12, a: 10 } };
+  const finalDate = new Date("2026-12-31T12:00:00Z");
+
+  const single = getViceCityStats([firstGig], members, finalDate);
+  assert.equal(single.club.length, 0);
+
+  const tied = getViceCityStats([firstGig, secondGig, thirdGig], members, finalDate);
+  assert.deepEqual(clone(tied.club.map(({ id, position, stars }) => [id, position, stars])), [["a", 1, 6], ["b", 1, 6]]);
+  assert.deepEqual(clone(tied.challengers.map(({ id }) => id)), ["c"]);
+
+  const final = getViceCityStats([firstGig, secondGig, thirdGig, fourthGig], members, finalDate);
+  assert.deepEqual(clone(final.club.map(({ id, position, stars }) => [id, position, stars])), [["b", 1, 9], ["a", 2, 8]]);
+});
 
 test("stats data matches the existing readers using one read-only batch instead of sequential calls", async () => {
   const baseline = harness();

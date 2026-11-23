@@ -6,7 +6,7 @@ import { GigCard } from "@/components/gig-card";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Gig, Member } from "@/types";
-import { getGigStatus } from "@/lib/constants";
+import { groupGigs } from "@/lib/gig-groups";
 
 export default function HomePage() {
   const [gigs, setGigs] = useState<Gig[]>([]);
@@ -23,10 +23,12 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const upcoming = gigs
-    .filter((g) => getGigStatus(g) !== "completed")
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const past = gigs.filter((g) => getGigStatus(g) === "completed");
+  const { upcoming, stale, past } = groupGigs(gigs);
+  const sections = [
+    { title: "Nadcházející", concerts: upcoming },
+    { title: "Staré nevyhodnocené", concerts: stale },
+    { title: "Proběhlé", concerts: past },
+  ];
 
   return (
     <>
@@ -42,31 +44,18 @@ export default function HomePage() {
           <EmptyState />
         ) : (
           <div className="space-y-8">
-            {upcoming.length > 0 && (
-              <section>
+            {sections.filter(({ concerts }) => concerts.length > 0).map(({ title, concerts }) => (
+              <section key={title}>
                 <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                  Nadcházející
+                  {title}
                 </h2>
                 <div className="space-y-2">
-                  {upcoming.map((gig) => (
+                  {concerts.map((gig) => (
                     <GigCard key={gig.id} gig={gig} members={members} />
                   ))}
                 </div>
               </section>
-            )}
-
-            {past.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                  Proběhlé
-                </h2>
-                <div className="space-y-2">
-                  {past.map((gig) => (
-                    <GigCard key={gig.id} gig={gig} members={members} />
-                  ))}
-                </div>
-              </section>
-            )}
+            ))}
           </div>
         )}
       </main>
